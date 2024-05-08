@@ -1,5 +1,6 @@
-from accelerate.tracking import on_main_process
+from accelerate.state import PartialState
 import aim
+from functools import wraps
 import sys
 
 _strict = True
@@ -16,18 +17,24 @@ _runs = []
 def get_runs():
     return _runs
 
+def on_main_process(function):
+    @wraps(function)
+    def execute_on_main_process(*args, **kwargs):
+        PartialState().on_main_process(function)(*args, **kwargs)
+    return execute_on_main_process
+
 @on_main_process
-def _do_track(*args, **kwargs):
+def _track(*args, **kwargs):
     for run in _runs:
         run.track(*args, **kwargs)
 
 @on_main_process
-def _do_close():
+def _close():
     for run in _runs:
         run.close()
 
 @on_main_process
-def _do_init(repo=_repo, name=None, args=None, **kwargs):
+def _init(repo=_repo, name=None, args=None, **kwargs):
     global _runs
     if args is None:
         if _strict:
@@ -50,33 +57,33 @@ def _do_init(repo=_repo, name=None, args=None, **kwargs):
 # aimrun interface
 
 def init(repo=_repo, args=None, **kwargs):
-    _do_init(repo=repo, args=args, **kwargs)
+    _init(repo=repo, args=args, **kwargs)
 
 def track(*args, **kwargs):
-    _do_track(*args, **kwargs)
+    _track(*args, **kwargs)
 
 def close():
-    _do_close()
+    _close()
 
 # wandb interface
 
 class wandb:
     @staticmethod
     def init(project=None, config=None, **kwargs):
-        _do_init(experiment=project, args=config, **kwargs)
+        _init(experiment=project, args=config, **kwargs)
     @staticmethod
     def log(*args, **kwargs):
-        _do_track(*args, **kwargs)
+        _track(*args, **kwargs)
     @staticmethod
     def finish():
-        _do_close()
+        _close()
 
 # aim interface
 
 class Run:
     def __init__(self, *args, **kwargs):
-        _do_init(*args, **kwargs)
+        _init(*args, **kwargs)
     def track(self, *args, **kwargs):
-        _do_track(*args, **kwargs)
+        _track(*args, **kwargs)
     def close(self):
-        _do_close()
+        _close()
