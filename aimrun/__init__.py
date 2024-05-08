@@ -17,17 +17,17 @@ def get_runs():
     return _runs
 
 @on_main_process
-def _track(*args, **kwargs):
+def _do_track(*args, **kwargs):
     for run in _runs:
         run.track(*args, **kwargs)
 
 @on_main_process
-def _close():
+def _do_close():
     for run in _runs:
         run.close()
 
 @on_main_process
-def _init(repo=_repo, name=None, args=None, **kwargs):
+def _do_init(repo=_repo, name=None, args=None, **kwargs):
     global _runs
     if args is None:
         if _strict:
@@ -50,33 +50,33 @@ def _init(repo=_repo, name=None, args=None, **kwargs):
 # aimrun interface
 
 def init(repo=_repo, args=None, **kwargs):
-    _init(repo=repo, args=args, **kwargs)
+    _do_init(repo=repo, args=args, **kwargs)
 
 def track(*args, **kwargs):
-    _track(*args, **kwargs)
+    _do_track(*args, **kwargs)
 
 def close():
-    _close()
+    _do_close()
 
 # wandb interface
 
 class wandb:
     @staticmethod
     def init(project=None, config=None, **kwargs):
-        _init(experiment=project, args=config, **kwargs)
+        _do_init(experiment=project, args=config, **kwargs)
     @staticmethod
     def log(*args, **kwargs):
-        _track(*args, **kwargs)
+        _do_track(*args, **kwargs)
     @staticmethod
     def finish():
-        _close()
+        _do_close()
 
 # aim interface
 
 class Run:
     def __init__(self, *args, **kwargs):
-        _init(*args, **kwargs)
+        _do_init(*args, **kwargs)
     def track(self, *args, **kwargs):
-        _track(*args, **kwargs)
+        _do_track(*args, **kwargs)
     def close(self):
-        _close()
+        _do_close()
