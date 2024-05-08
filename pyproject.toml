@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aimrun"
+version = "0.0.1"
+authors = [
+  { name = "Peter Schneider-Kamp" },
+  { name = "Jacob Nielsen" },
+]
+
+description = "A simple way of integrating aim into MLOps frameworks."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    'accelerate',
+    'aim',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/schneiderkamplab/aimrun"
+"Bug Tracker" = "https://github.com/schneiderkamplab/aimrun/issues"
+
+[tool.hatch.build]
+include = [
+    'aimrun',
+    'LICENSE',
+    'README.md',
+]
