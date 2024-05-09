@@ -34,7 +34,7 @@ def _close():
         run.close()
 
 @on_main_process
-def _init(repo=_repo, name=None, args=None, **kwargs):
+def _init(repo=_repo, description=None, args=None, **kwargs):
     global _runs
     if args is None:
         if _strict:
@@ -49,8 +49,8 @@ def _init(repo=_repo, name=None, args=None, **kwargs):
     run = aim.Run(repo=repo, **kwargs)
     if args is not None:
         run['args'] = args
-    if name is not None:
-        run['name'] = name
+    if description is not None:
+        run['description'] = description
     _runs.append(run)
     return run
 
@@ -69,14 +69,17 @@ def close():
 
 class wandb:
     @staticmethod
-    def init(project=None, config=None, **kwargs):
-        _init(experiment=project, args=config, **kwargs)
+    def init(project=None, name=None, config=None, **kwargs):
+        _init(experiment=project, args=config, description=name, **kwargs)
     @staticmethod
     def log(*args, **kwargs):
         _track(*args, **kwargs)
     @staticmethod
     def finish():
         _close()
+    @staticmethod
+    def set_default_repo(repo):
+        set_default_repo(repo)
 
 # aim interface
 
