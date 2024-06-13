@@ -182,5 +182,6 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat)
         wait_time = repeat
         while wait_time > 0:
             time.sleep(min(wait_time, 1.0))
+            wait_time -= 1.0
             if exit_flag:
                 return
