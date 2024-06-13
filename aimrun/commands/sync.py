@@ -186,6 +186,6 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat)
             click.echo(".", nl=False)
             wait_time -= 1.0
             if exit_flag:
-                click.echo("")
+                click.echo(" interrupted")
                 return
         click.echo(" done")
