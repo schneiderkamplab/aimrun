@@ -138,7 +138,7 @@ def sync(src_repo, dst_repo, run, offset, eps, retries):
                 click.echo(f"fetching run for {run_hash} from source repository")
                 src_run = fetch_run(src_repo, run_hash, retries=retries)
                 diff = abs(src_run.duration + offset - dst_run.duration)
-                if src_run.active != dst_run.active or diff < eps:
+                if src_run.active == dst_run.active and diff < eps:
                     click.echo(f"skipping {run_hash}: run hash exists with {diff}s difference in duration")
                     skips.append(run_hash)
                     continue
