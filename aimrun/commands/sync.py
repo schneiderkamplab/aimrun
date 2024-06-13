@@ -120,10 +120,12 @@ def sync(src_repo, dst_repo, run, offset, eps):
     failures = []
     for run_hash in tqdm(runs):
         try:
+            click.echo(f"fetching run for {run_hash} from destination repository")
             dst_run = dst_repo.get_run(run_hash)
             if dst_run is None:
                 click.echo(f"syncing {run_hash}: run hash not found in destination repository")
             else:
+                click.echo(f"fetching run for {run_hash} from source repository")
                 src_run = src_repo.get_run(run_hash)
                 diff = abs(src_run.duration + offset - dst_run.duration) < eps
                 if diff < eps:
@@ -134,7 +136,7 @@ def sync(src_repo, dst_repo, run, offset, eps):
             click.echo(f"sucesss: successfully synchronized {run_hash}")
             successes.append(run_hash)
         except Exception as e:
-            click.echo(f"failure: failed to synchronize {run_hash} - {str(e)}")
+            click.echo(f"failure: failed to synchronize {run_hash} - {e}")
             failures.append((run_hash, e))
     if len(successes) > 0:
         click.echo(f"summary: successfully synchronized {len(successes)} runs - {successes}")
