@@ -119,27 +119,28 @@ exit_flag = False
 def signal_handler(sig, frame):
     global exit_flag
     exit_flag = True
+    click.echo("Ctrl-C pressed: exiting gracefully")
 
 @click.group()
 def _sync():
     pass
 @_sync.command()
-@click.argument("src_repo", type=str)
-@click.argument("dst_repo", type=str)
+@click.argument("src_repo_path", type=str)
+@click.argument("dst_repo_path", type=str)
 @click.option("--run", default=None, help="Specific run hash to synchronize (default: None)")
 @click.option("--offset", default=0, help="Offset for the duration in seconds (default: 0)")
 @click.option("--eps", default=1.0, help="Error margin for the duration in seconds (default: 1.0)")
 @click.option("--retries", default=3, help="Number of retries to fetch run (default: 3)")
 @click.option("--sleep", default=1.0, help="Sleep time in seconds between retries (default: 1.0)")
 @click.option("--repeat", default=60.0, help="Sleep time in seconds between repetitions (default: 60.0)")
-def sync(src_repo, dst_repo, run, offset, eps, retries, sleep, repeat):
+def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat):
     global exit_flag
     exit_flag = repeat is None
     signal.signal(signal.SIGINT, signal_handler)
     while True:
         try:
-            src_repo = Repo(path=src_repo)
-            dst_repo = Repo(path=dst_repo)
+            src_repo = Repo(path=src_repo_path)
+            dst_repo = Repo(path=dst_repo_path)
             runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
             successes = []
             failures = []
