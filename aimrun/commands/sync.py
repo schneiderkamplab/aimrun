@@ -103,6 +103,14 @@ def sync_run(src_repo, run_hash, dest_repo):
             copy_structured_props()
             copy_trees()
 
+def fetch_run(repo, run_hash, retries):
+    while retries:
+        try:
+            return repo.get_run(run_hash)
+        except Exception as e:
+            retries -= 1
+    raise RuntimeError(f"failed to fetch run {run_hash} after {retries} retries")
+
 @click.group()
 def _sync():
     pass
@@ -112,7 +120,8 @@ def _sync():
 @click.option("--run", default=None, help="Specific run hash to synchronize (default: None)")
 @click.option("--offset", default=0, help="Offset for the duration in seconds (default: 0)")
 @click.option("--eps", default=1.0, help="Error margin for the duration in seconds (default: 1.0)")
-def sync(src_repo, dst_repo, run, offset, eps):
+@click.option("--retries", default=3, help="Number of retries to fetch run (default: 3)")
+def sync(src_repo, dst_repo, run, offset, eps, retries):
     src_repo = Repo(path=src_repo)
     dst_repo = Repo(path=dst_repo)
     runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
@@ -121,18 +130,18 @@ def sync(src_repo, dst_repo, run, offset, eps):
     for run_hash in tqdm(runs):
         try:
             click.echo(f"fetching run for {run_hash} from destination repository")
-            dst_run = dst_repo.get_run(run_hash)
+            dst_run = fetch_run(dst_repo, run_hash, retries=retries)
             if dst_run is None:
                 click.echo(f"syncing {run_hash}: run hash not found in destination repository")
             else:
                 click.echo(f"fetching run for {run_hash} from source repository")
-                src_run = src_repo.get_run(run_hash)
+                src_run = fetch_run(src_repo, run_hash)
                 diff = abs(src_run.duration + offset - dst_run.duration)
                 if diff < eps:
                     click.echo(f"skipping {run_hash}: run hash exists with {diff}s difference in duration")
                     continue
                 click.echo(f"syncing {run_hash}: run hash exists with {diff}s difference in duration")
-            sync_run(src_repo, run_hash, dst_repo)
+            sync_run(src_repo, run_hash, dst_repo, retries=retries)
             click.echo(f"sucesss: successfully synchronized {run_hash}")
             successes.append(run_hash)
         except Exception as e:
