@@ -134,8 +134,6 @@ def _sync():
 @click.option("--sleep", default=1.0, help="Sleep time in seconds between retries (default: 1.0)")
 @click.option("--repeat", default=60.0, help="Sleep time in seconds between repetitions (default: 60.0)")
 def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat):
-    global exit_flag
-    exit_flag = repeat is None
     signal.signal(signal.SIGINT, signal_handler)
     while True:
         try:
@@ -172,10 +170,15 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat)
                 click.echo(f"summary: successfully synchronized {len(successes)} runs - {successes}")
             if len(failures) > 0:
                 click.echo(f"summary: failed to synchronize {len(failures)} runs - {failures}")
-            src_repo.close()
-            dst_repo.close()
         except Exception as e:
             click.echo(f"failure: failed to synchronize runs - {e}")
-        if exit_flag:
-            break
-        time.sleep(repeat)
+        finally:
+            src_repo.close()
+            dst_repo.close()
+        if repeat is None or exit_flag:
+            return
+        wait_time = repeat
+        while wait_time > 0:
+            time.sleep(min(wait_time, 1.0)
+            if exit_flag:
+                return
