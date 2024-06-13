@@ -144,6 +144,8 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat)
             failures = []
             skips = []
             for run_hash in tqdm(runs):
+                if exit_flag:
+                    break
                 try:
                     click.echo(f"fetching run for {run_hash} from destination repository")
                     dst_run = fetch_run(dst_repo, run_hash, retries=retries, sleep=sleep)
