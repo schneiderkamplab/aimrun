@@ -180,8 +180,12 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat)
         if repeat <= 0 or exit_flag:
             return
         wait_time = repeat
+        click.echo(f"waiting {wait_time}s before next repetition: ", nl=False)
         while wait_time > 0:
             time.sleep(min(wait_time, 1.0))
+            click.echo(".", nl=False)
             wait_time -= 1.0
             if exit_flag:
+                click.echo("")
                 return
+        click.echo(" done")
