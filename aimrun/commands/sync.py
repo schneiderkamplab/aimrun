@@ -109,10 +109,10 @@ def _sync():
 @click.argument("src_repo", type=str)
 @click.argument("dst_repo", type=str)
 @click.option("--run", default=None, help="Specific run hash to synchronize (default: None)")
-def analyze(src_repo, dst_repo, run):
+def sync(src_repo, dst_repo, run):
     src_repo = Repo(path=src_repo)
     dst_repo = Repo(path=dst_repo)
-    runs = [run.hash for run in src_repo.iter_runs()] if runs is None else [run]
+    runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
     success = []
     failures = []
     for run_hash in runs:
