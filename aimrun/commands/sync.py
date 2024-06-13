@@ -135,13 +135,13 @@ def sync(src_repo, dst_repo, run, offset, eps, retries):
                 click.echo(f"syncing {run_hash}: run hash not found in destination repository")
             else:
                 click.echo(f"fetching run for {run_hash} from source repository")
-                src_run = fetch_run(src_repo, run_hash)
+                src_run = fetch_run(src_repo, run_hash, retries=retries)
                 diff = abs(src_run.duration + offset - dst_run.duration)
                 if diff < eps:
                     click.echo(f"skipping {run_hash}: run hash exists with {diff}s difference in duration")
                     continue
                 click.echo(f"syncing {run_hash}: run hash exists with {diff}s difference in duration")
-            sync_run(src_repo, run_hash, dst_repo, retries=retries)
+            sync_run(src_repo, run_hash, dst_repo)
             click.echo(f"sucesss: successfully synchronized {run_hash}")
             successes.append(run_hash)
         except Exception as e:
