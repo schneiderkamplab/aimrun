@@ -116,7 +116,7 @@ def sync(src_repo, dst_repo, run, offset, eps):
     src_repo = Repo(path=src_repo)
     dst_repo = Repo(path=dst_repo)
     runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
-    success = []
+    successes = []
     failures = []
     for run_hash in tqdm(runs):
         try:
@@ -132,11 +132,11 @@ def sync(src_repo, dst_repo, run, offset, eps):
                 click.echo(f"syncing {run_hash}: run hash exists with {diff}s difference in duration")
             sync_run(src_repo, run_hash, dst_repo)
             click.echo(f"sucesss: successfully synchronized {run_hash}")
-            success.append(run_hash)
+            successes.append(run_hash)
         except Exception as e:
-            click.echo(f"failure: failed to synchronize {run_hash} - {e}")
+            click.echo(f"failure: failed to synchronize {run_hash} - {str(e)}")
             failures.append((run_hash, e))
-    if len(success) > 0:
-        click.echo(f"summary: successfully synchronized {len(success)} runs")
+    if len(successes) > 0:
+        click.echo(f"summary: successfully synchronized {len(successes)} runs - {successes}")
     if len(failures) > 0:
-        click.echo(f"summary: failed to synchronize {len(failures)} runs")
+        click.echo(f"summary: failed to synchronize {len(failures)} runs - {failures}")
