@@ -6,5 +6,5 @@ cli = click.CommandCollection(sources=[
     _sync,
 ])
 
-if __name__ == "main":
+if __name__ == "__main__":
     cli()
