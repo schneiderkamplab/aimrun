@@ -1,5 +1,8 @@
 from aim import Repo
 import click
+import signal
+import time
+from tqdm import tqdm
 
 def sync_run(src_repo, run_hash, dest_repo):
     def copy_trees():
@@ -102,26 +105,87 @@ def sync_run(src_repo, run_hash, dest_repo):
             copy_structured_props()
             copy_trees()
 
+def fetch_run(repo, run_hash, retries, sleep):
+    _retries = retries
+    while _retries:
+        try:
+            return repo.get_run(run_hash)
+        except Exception as e:
+            _retries -= 1
+            time.sleep(sleep)
+    raise RuntimeError(f"failed to fetch run {run_hash} after {retries} retries")
+
+exit_flag = False
+def signal_handler(sig, frame):
+    global exit_flag
+    exit_flag = True
+    click.echo("Ctrl-C pressed: exiting gracefully")
+
 @click.group()
 def _sync():
     pass
 @_sync.command()
-@click.argument("src_repo", type=str)
-@click.argument("dst_repo", type=str)
+@click.argument("src_repo_path", type=str)
+@click.argument("dst_repo_path", type=str)
 @click.option("--run", default=None, help="Specific run hash to synchronize (default: None)")
-def sync(src_repo, dst_repo, run):
-    src_repo = Repo(path=src_repo)
-    dst_repo = Repo(path=dst_repo)
-    runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
-    success = []
-    failures = []
-    for run_hash in runs:
+@click.option("--offset", default=0, help="Offset for the duration in seconds (default: 0)")
+@click.option("--eps", default=1.0, help="Error margin for the duration in seconds (default: 1.0)")
+@click.option("--retries", default=3, help="Number of retries to fetch run (default: 3)")
+@click.option("--sleep", default=1.0, help="Sleep time in seconds between retries (default: 1.0)")
+@click.option("--repeat", default=60.0, help="Sleep time in seconds between repetitions(default: 60.0)")
+def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat):
+    signal.signal(signal.SIGINT, signal_handler)
+    while True:
         try:
-            sync_run(src_repo, run_hash, dst_repo)
-            success.append(run_hash)
+            src_repo = Repo(path=src_repo_path)
+            dst_repo = Repo(path=dst_repo_path)
+            runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
+            successes = []
+            failures = []
+            skips = []
+            for run_hash in tqdm(runs):
+                if exit_flag:
+                    break
+                try:
+                    click.echo(f"fetching run for {run_hash} from destination repository")
+                    dst_run = fetch_run(dst_repo, run_hash, retries=retries, sleep=sleep)
+                    if dst_run is None:
+                        click.echo(f"syncing {run_hash}: run hash not found in destination repository")
+                    else:
+                        click.echo(f"fetching run for {run_hash} from source repository")
+                        src_run = fetch_run(src_repo, run_hash, retries=retries, sleep=sleep)
+                        diff = abs(src_run.duration + offset - dst_run.duration)
+                        if src_run.active == dst_run.active and diff < eps:
+                            click.echo(f"skipping {run_hash}: run hash exists with {diff}s difference in duration")
+                            skips.append(run_hash)
+                            continue
+                        click.echo(f"syncing {run_hash}: run hash exists with {diff}s difference in duration")
+                    sync_run(src_repo, run_hash, dst_repo)
+                    click.echo(f"sucesss: successfully synchronized {run_hash}")
+                    successes.append(run_hash)
+                except Exception as e:
+                    click.echo(f"failure: failed to synchronize {run_hash} - {e}")
+                    failures.append((run_hash, e))
+            if len(skips) > 0:
+                click.echo(f"summary: skipped {len(skips)} runs - {skips}")
+            if len(successes) > 0:
+                click.echo(f"summary: successfully synchronized {len(successes)} runs - {successes}")
+            if len(failures) > 0:
+                click.echo(f"summary: failed to synchronize {len(failures)} runs - {failures}")
         except Exception as e:
-            failures.append((run_hash, e))
-    if len(success) > 0:
-        click.echo(f"Successfully synchronized {len(success)} runs: {success}")
-    if len(failures) > 0:
-        click.echo(f"Failed to synchronize {len(failures)} runs: {failures}")
+            click.echo(f"failure: failed to synchronize runs - {e}")
+        finally:
+            src_repo.close()
+            dst_repo.close()
+        if repeat <= 0 or exit_flag:
+            return
+        wait_time = repeat
+        click.echo(f"waiting {wait_time}s before next repetition: ", nl=False)
+        while wait_time > 0:
+            time.sleep(min(wait_time, 1.0))
+            click.echo(".", nl=False)
+            wait_time -= 1.0
+            if exit_flag:
+                click.echo(" interrupted")
+                return
+        click.echo(" done")
