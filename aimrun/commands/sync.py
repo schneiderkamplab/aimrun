@@ -1,5 +1,6 @@
 from aim import Repo
 import click
+from tqdm import tqdm
 
 def sync_run(src_repo, run_hash, dest_repo):
     def copy_trees():
@@ -109,19 +110,33 @@ def _sync():
 @click.argument("src_repo", type=str)
 @click.argument("dst_repo", type=str)
 @click.option("--run", default=None, help="Specific run hash to synchronize (default: None)")
-def sync(src_repo, dst_repo, run):
+@click.option("--offset", default=0, help="Offset for the duration in seconds (default: 0)")
+@click.option("--eps", default=1.0, help="Error margin for the duration in seconds (default: 1.0)")
+def sync(src_repo, dst_repo, run, offset, eps):
     src_repo = Repo(path=src_repo)
     dst_repo = Repo(path=dst_repo)
     runs = [run.hash for run in src_repo.iter_runs()] if run is None else [run]
     success = []
     failures = []
-    for run_hash in runs:
+    for run_hash in tqdm(runs):
         try:
+            dst_run = dst_repo.get_run(run_hash)
+            if dst_run is None:
+                click.echo(f"syncing {run_hash}: run hash not found in destination repository")
+            else:
+                src_run = src_repo.get_run(run_hash)
+                diff = abs(src_run.duration + offset - dst_run.duration) < eps
+                if diff < eps:
+                    click.echo(f"skipping {run_hash}: run hash exists with {diff}s difference in duration")
+                    continue
+                click.echo(f"syncing {run_hash}: run hash exists with {diff}s difference in duration")
             sync_run(src_repo, run_hash, dst_repo)
+            click.echo(f"sucesss: successfully synchronized {run_hash}")
             success.append(run_hash)
         except Exception as e:
+            click.echo(f"failure: failed to synchronize {run_hash} - {e}")
             failures.append((run_hash, e))
     if len(success) > 0:
-        click.echo(f"Successfully synchronized {len(success)} runs: {success}")
+        click.echo(f"summary: successfully synchronized {len(success)} runs")
     if len(failures) > 0:
-        click.echo(f"Failed to synchronize {len(failures)} runs: {failures}")
+        click.echo(f"summary: failed to synchronize {len(failures)} runs")
