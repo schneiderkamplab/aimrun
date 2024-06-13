@@ -132,7 +132,7 @@ def _sync():
 @click.option("--eps", default=1.0, help="Error margin for the duration in seconds (default: 1.0)")
 @click.option("--retries", default=3, help="Number of retries to fetch run (default: 3)")
 @click.option("--sleep", default=1.0, help="Sleep time in seconds between retries (default: 1.0)")
-@click.option("--repeat", default=60.0, help="Sleep time in seconds between repetitions (default: 60.0)")
+@click.option("--repeat", default=60.0, help="Sleep time in seconds between repetitions(default: 60.0)")
 def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat):
     signal.signal(signal.SIGINT, signal_handler)
     while True:
@@ -177,7 +177,7 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat)
         finally:
             src_repo.close()
             dst_repo.close()
-        if repeat is None or exit_flag:
+        if repeat <= 0 or exit_flag:
             return
         wait_time = repeat
         while wait_time > 0:
