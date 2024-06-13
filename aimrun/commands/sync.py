@@ -104,11 +104,12 @@ def sync_run(src_repo, run_hash, dest_repo):
             copy_trees()
 
 def fetch_run(repo, run_hash, retries):
-    while retries:
+    _retries = retries
+    while _retries:
         try:
             return repo.get_run(run_hash)
         except Exception as e:
-            retries -= 1
+            _retries -= 1
     raise RuntimeError(f"failed to fetch run {run_hash} after {retries} retries")
 
 @click.group()
