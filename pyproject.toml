@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aimrun"
-version = "0.3.0"
+version = "0.4.0"
 authors = [
   { name = "Peter Schneider-Kamp" },
   { name = "Jacob Nielsen" },
@@ -21,7 +21,7 @@ classifiers = [
 
 dependencies = [
     'accelerate',
-    'aim',
+    'aim@git+https://github.com/schneiderkamplab/aim',
 ]
 
 [project.urls]
