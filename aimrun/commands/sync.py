@@ -1,5 +1,6 @@
 from aim import Repo
 import click
+import datetime
 import signal
 import time
 from tqdm import tqdm
@@ -17,10 +18,20 @@ def log(level, message, *args, **kwargs):
     if level <= verbosity:
         click.echo(f"[{time.time()-base:.2f}] {message}", *args, **kwargs)
 
+def fetch_items(view, retries, sleep):
+    _retries = retries
+    while _retries:
+        try:
+            return list(view.items())
+        except Exception as e:
+            _retries -= 1
+            time.sleep(sleep)
+    raise RuntimeError(f"failed to fetch items after {retries} retries")
+
 def chunker(seq, size):
     return (seq[idx:idx+size] for idx in range(0,len(seq),size))
 
-def sync_run(src_repo, run_hash, dest_repo, mass_update):
+def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
     def copy_trees():
         log(DETAIL, "copy run meta tree")
         source_meta_tree = src_repo.request_tree(
@@ -67,13 +78,13 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update):
                 dest_time_view = dest_v2_tree.subtree((ctx_id, metric_name)).array('time', dtype='int64').allocate()
 
                 if mass_update:
-                    for chunk in chunker(list(source_val_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_val_view, retries, sleep), size=mass_update):
                         dest_val_view.update(chunk)
-                    for chunk in chunker(list(source_step_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_step_view, retries, sleep), size=mass_update):
                         dest_step_view.update(chunk)
-                    for chunk in chunker(list(source_epoch_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_epoch_view, retries, sleep), size=mass_update):
                         dest_epoch_view.update(chunk)
-                    for chunk in chunker(list(source_time_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_time_view, retries, sleep), size=mass_update):
                         dest_time_view.update(chunk)
                     continue
                 for key, val in tqdm(list(source_val_view.items()), "keys", disable=verbosity < 3):
@@ -104,11 +115,11 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update):
                 dest_time_view = dest_v1_tree.subtree((ctx_id, metric_name)).array('time', dtype='int64').allocate()
 
                 if mass_update:
-                    for chunk in chunker(list(source_val_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_val_view, retries, sleep), size=mass_update):
                         dest_val_view.update(chunk)
-                    for chunk in chunker(list(source_epoch_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_epoch_view, retries, sleep), size=mass_update):
                         dest_epoch_view.update(chunk)
-                    for chunk in chunker(list(source_time_view.items()), size=mass_update):
+                    for chunk in chunker(fetch_items(source_time_view, retries, sleep), size=mass_update):
                         dest_time_view.update(chunk)
                     continue
                 for key, val in tqdm(list(source_val_view.items()), desc="keys", disable=verbosity < 3):
@@ -120,10 +131,11 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update):
 
     def copy_structured_props():
         log(DETAIL, "copy run structured properties")
-        source_structured_run = src_repo.structured_db.find_run(run_hash)
+        source_structured_run = src_repo.request_props(run_hash, read_only=True) #structured_db.find_run(run_hash)
+        created_at = datetime.datetime.fromtimestamp(source_structured_run.creation_time)
         dest_structured_run = dest_repo.request_props(run_hash,
                                                         read_only=False,
-                                                        created_at=source_structured_run.created_at)
+                                                        created_at=created_at)
         dest_structured_run.name = source_structured_run.name
         dest_structured_run.experiment = source_structured_run.experiment
         dest_structured_run.description = source_structured_run.description
@@ -139,9 +151,9 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update):
     else:
         with dest_repo.structured_db:
             copy_structured_props()
-            log(DETAIL, "finished copying run trees")
-            copy_trees()
             log(DETAIL, "finished copying run structured properties")
+            copy_trees()
+            log(DETAIL, "finished copying run trees")
 
 def fetch_run(repo, run_hash, retries, sleep):
     _retries = retries
@@ -185,9 +197,12 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat,
         src_repo = None
         dst_repo = None
         try:
+            log(DETAIL, f"opening source repository at {src_repo_path}")
             src_repo = Repo(path=src_repo_path)
+            log(DETAIL, f"opening destination repository at {dst_repo_path}")
             dst_repo = Repo(path=dst_repo_path)
-            runs = [run.hash for run in src_repo.iter_runs()] if run is None else run
+            log(DETAIL, f"fetching runs from source repository")
+            runs = run if run else [run.hash for run in src_repo.iter_runs()]
             successes = []
             failures = []
             skips = []
@@ -218,7 +233,7 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat,
                             skips.append(run_hash)
                             continue
                         log(INFO, f"syncing {run_hash}: run hash exists with {diff} difference in duration")
-                    sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update)
+                    sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update, retries=retries, sleep=sleep)
                     log(INFO, f"sucesss: successfully synchronized {run_hash}")
                     successes.append(run_hash)
                 except Exception as e:
