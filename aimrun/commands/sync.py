@@ -186,7 +186,7 @@ def _sync():
 @click.option("--force", is_flag=True, help="Force synchronization of all runs (default: False)")
 @click.option("--first", default=0, help="First run to synchronize (default: 0)")
 @click.option("--last", default=-1, help="Last run to synchronize (default: -1)")
-@click.option("--mass-update", default=128, help="Mass update chunk size (default: 128)")
+@click.option("--mass-update", default=0, help="Mass update chunk size (0 to deactivate) (default: 0)")
 @click.option("--raise-errors", is_flag=True, help="Raise errors during synchronization (default: False)")
 @click.option("--verbosity-level", default=verbosity, help="Verbosity of the output (default: {verbosity})")
 def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity_level):

@@ -21,7 +21,8 @@ classifiers = [
 
 dependencies = [
     'accelerate',
-    'aim@git+https://github.com/schneiderkamplab/aim',
+    'aim',
+    #'@git+https://github.com/schneiderkamplab/aim',
 ]
 
 [project.urls]
