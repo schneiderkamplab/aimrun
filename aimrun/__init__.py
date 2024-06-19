@@ -2,6 +2,9 @@ from accelerate.state import PartialState
 import aim
 from functools import wraps
 import sys
+from threading import Thread
+
+from .commands.sync import graceful_exit, do_sync
 
 _strict = True
 def set_strict(strict):
@@ -14,6 +17,7 @@ def set_default_repo(repo):
     _repo = repo
 
 _runs = []
+_threads = []
 def get_runs():
     return _runs
 
@@ -32,9 +36,12 @@ def _track(*args, **kwargs):
 def _close():
     for run in _runs:
         run.close()
+    graceful_exit()
+    for thread in _threads:
+        thread.join()
 
 @on_main_process
-def _init(repo=_repo, description=None, args=None, **kwargs):
+def _init(repo=_repo, description=None, args=None, sync_repo=None, sync_args={}, **kwargs):
     global _runs
     if args is None:
         if _strict:
@@ -52,6 +59,10 @@ def _init(repo=_repo, description=None, args=None, **kwargs):
     if description is not None:
         run['description'] = description
     _runs.append(run)
+    if sync_repo is not None:
+        thread = Thread(target=do_sync, args=(repo, sync_repo, [run.hash]), kwargs=sync_args)
+        thread.start()
+        _threads.append(thread)
     return run
 
 # aimrun interface

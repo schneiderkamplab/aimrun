@@ -204,9 +204,11 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             log(DETAIL, "finished copying run trees")
 
 exit_flag = False
-def signal_handler(sig, frame):
+def graceful_exit():
     global exit_flag
     exit_flag = True
+def signal_handler(sig, frame):
+    graceful_exit()
     log(ERROR, "Ctrl-C pressed: exiting gracefully")
 
 @click.group()
@@ -229,9 +231,27 @@ def _sync():
 @click.option("--verbosity", default=_verbosity, help="Verbosity of the output (default: {_verbosity})")
 @click.option("--full-copy", is_flag=True, help="Full copy of the runs (default: False)")
 def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
+    signal.signal(signal.SIGINT, signal_handler)
+    do_sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy)
+
+def do_sync(src_repo_path,
+         dst_repo_path,
+         run,
+         offset=0,
+         eps=0.00001,
+         retries=10,
+         sleep=1,
+         repeat=0,
+         force=False,
+         first=0,
+         last=-1,
+         mass_update=-128,
+         raise_errors=False,
+         verbosity=_verbosity,
+         full_copy=False,
+    ):
     global _verbosity, _retries, _sleep
     _verbosity, _retries, _sleep = verbosity, retries, sleep
-    signal.signal(signal.SIGINT, signal_handler)
     while True:
         src_repo = None
         dst_repo = None
