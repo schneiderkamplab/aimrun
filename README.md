@@ -33,6 +33,17 @@ aimrun.track(A, name="value_0")
 aimrun.close() 
 ```
 
+### Synchronizing on-going runs
+```python
+aimrun.init(repo=".", sync_repo='aim://172.3.66.145:53800', sync_args={"repeat": 60}, experiment='my_experiment', description='description of run' args={"arg": 1})
+```
+This starts a thread that incrementally synchronizes the current on-going run to a remote repo while using the current directory as the local repository.
+
+To profit from mass updates (faster synchronization), consider installing an improved aim version:
+```bash
+pip install git+https://github.com/schneiderkamplab/aim
+```
+
 ## Drop-in replacement Wandb (Experimental)
 We experimentally offer aimrun as a drop-in replacement for wandb, making a seamless integration in your framework even easier.
 
