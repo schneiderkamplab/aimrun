@@ -7,8 +7,9 @@ pip install aimrun
 ```
 
 ## Features
-1. Multiple runs. Simply initialize multiple aimruns using ``aimrun.init()``, and track on multiple repositories at once. 
-2. No need of main-process wrapper. You do not need to make sure, that only the main-process calls aimrun functions, we take care of that for you.
+1. Multiple runs. Simply initialize multiple aimruns using ```aimrun.init()```, and track to multiple repositories at once. 
+2. No need for a main-process wrapper. You do not need to make sure that only the main-process calls aimrun functions - we take care of that for you.
+3. Sync project-specific (local) repositories to larger (remote) repositories. See ```python -m aimrun sync --help``` for guidance.
 
 ## Usage (Recommended)
 1. Initialize one or more aimruns using ```aimrun.init()```
@@ -33,8 +34,8 @@ aimrun.close()
 ```
 
 ## Drop-in replacement Wandb (Experimental)
-We experimentally offer aimrun as a drop-in replacement for wandb, making a seamless integration in your framework.
+We experimentally offer aimrun as a drop-in replacement for wandb, making a seamless integration in your framework even easier.
 
 1. Replace``import wandb`` with ``from aimrun import wandb``
-2. Set default repository før init (fx lige efter import)  ```wandb.set_default_repo('aim://172.3.66.145:53800')```
-3. Supported functions ```.init(), .log(),  .finit()```
+2. Set default repository before init (e.g. right after import)  ```wandb.set_default_repo('aim://172.3.66.145:53800')```
+3. Supported functions ```.init(), .log(),  .finish()```

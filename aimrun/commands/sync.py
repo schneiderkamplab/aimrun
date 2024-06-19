@@ -31,7 +31,7 @@ def fetch_items(view, retries, sleep):
 def chunker(seq, size):
     return (seq[idx:idx+size] for idx in range(0,len(seq),size))
 
-def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
+def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_copy):
     def copy_trees():
         log(DETAIL, "copy run meta tree")
         source_meta_tree = src_repo.request_tree(
@@ -41,7 +41,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
             'meta', run_hash, read_only=False, from_union=False, no_cache=True
         ).subtree('meta')
         dest_meta_run_tree = dest_meta_tree.subtree('chunks').subtree(run_hash)
-        dest_traces = dest_meta_run_tree.get('traces', None)
+        dest_traces = None if full_copy else dest_meta_run_tree.get('traces', None)
         dest_meta_tree[...] = source_meta_tree[...]
         dest_index = dest_repo._get_index_tree('meta', timeout=10).view(())
         dest_meta_run_tree.finalize(index=dest_index)
@@ -209,7 +209,8 @@ def _sync():
 @click.option("--mass-update", default=0, help="Mass update chunk size (0 to deactivate) (default: 0)")
 @click.option("--raise-errors", is_flag=True, help="Raise errors during synchronization (default: False)")
 @click.option("--verbosity-level", default=verbosity, help="Verbosity of the output (default: {verbosity})")
-def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity_level):
+@click.option("--full-copy", is_flag=True, help="Full copy of the runs (default: False)")
+def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity_level, full_copy):
     global verbosity
     verbosity = verbosity_level
     signal.signal(signal.SIGINT, signal_handler)
@@ -253,7 +254,7 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat,
                             skips.append(run_hash)
                             continue
                         log(INFO, f"syncing {run_hash}: run hash exists with {diff} difference in duration")
-                    sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update, retries=retries, sleep=sleep)
+                    sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update, retries=retries, sleep=sleep, full_copy=full_copy)
                     log(INFO, f"sucesss: successfully synchronized {run_hash}")
                     successes.append(run_hash)
                 except Exception as e:
