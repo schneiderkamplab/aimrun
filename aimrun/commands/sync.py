@@ -41,6 +41,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
             'meta', run_hash, read_only=False, from_union=False, no_cache=True
         ).subtree('meta')
         dest_meta_run_tree = dest_meta_tree.subtree('chunks').subtree(run_hash)
+        dest_traces = dest_meta_run_tree.get('traces', None)
         dest_meta_tree[...] = source_meta_tree[...]
         dest_index = dest_repo._get_index_tree('meta', timeout=10).view(())
         dest_meta_run_tree.finalize(index=dest_index)
@@ -77,14 +78,24 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
                 log(DEBUG, f"allocate time view for {ctx_id}/{metric_name}")
                 dest_time_view = dest_v2_tree.subtree((ctx_id, metric_name)).array('time', dtype='int64').allocate()
 
+                last_step = -1
+                if dest_traces is not None:
+                    _context = dest_traces.get(ctx_id, None)
+                    if _context is not None:
+                        _metric = _context.get(metric_name, None)
+                        if _metric is not None:
+                            last_step = _metric.get('last_step', -1)
+                new_keys = {k for k, v in fetch_items(source_step_view, retries, sleep) if v > last_step}
+                log(DEBUG, f"last step for {metric_name} is {last_step} and there are {len(new_keys)} new keys")
+
                 if mass_update:
-                    for chunk in chunker(fetch_items(source_val_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_val_view, retries, sleep) if x[0] in new_keys], size=mass_update):
                         dest_val_view.update(chunk)
-                    for chunk in chunker(fetch_items(source_step_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_step_view, retries, sleep) if x[0] in new_keys], size=mass_update):
                         dest_step_view.update(chunk)
-                    for chunk in chunker(fetch_items(source_epoch_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_epoch_view, retries, sleep) if x[0] in new_keys], size=mass_update):
                         dest_epoch_view.update(chunk)
-                    for chunk in chunker(fetch_items(source_time_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_time_view, retries, sleep) if x[0] in new_keys], size=mass_update):
                         dest_time_view.update(chunk)
                     continue
                 for key, val in tqdm(list(source_val_view.items()), "keys", disable=verbosity < 3):
@@ -114,12 +125,21 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
                 log(DEBUG, f"allocate time view for {ctx_id}/{metric_name}")
                 dest_time_view = dest_v1_tree.subtree((ctx_id, metric_name)).array('time', dtype='int64').allocate()
 
+                last_step = -1
+                if dest_traces is not None:
+                    _context = dest_traces.get(ctx_id, None)
+                    if _context is not None:
+                        _metric = _context.get(metric_name, None)
+                        if _metric is not None:
+                            last_step = _metric.get('last_step', -1)
+                log(DEBUG, f"last step for {metric_name} is {last_step}")
+
                 if mass_update:
-                    for chunk in chunker(fetch_items(source_val_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_val_view, retries, sleep) if x[0] > last_step], size=mass_update):
                         dest_val_view.update(chunk)
-                    for chunk in chunker(fetch_items(source_epoch_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_epoch_view, retries, sleep) if x[0] > last_step], size=mass_update):
                         dest_epoch_view.update(chunk)
-                    for chunk in chunker(fetch_items(source_time_view, retries, sleep), size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_time_view, retries, sleep) if x[0] > last_step], size=mass_update):
                         dest_time_view.update(chunk)
                     continue
                 for key, val in tqdm(list(source_val_view.items()), desc="keys", disable=verbosity < 3):
@@ -132,7 +152,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep):
     def copy_structured_props():
         log(DETAIL, "copy run structured properties")
         source_structured_run = src_repo.request_props(run_hash, read_only=True) #structured_db.find_run(run_hash)
-        created_at = datetime.datetime.fromtimestamp(source_structured_run.creation_time)
+        created_at = datetime.datetime.fromtimestamp(source_structured_run.creation_time, tz=datetime.timezone.utc)
         dest_structured_run = dest_repo.request_props(run_hash,
                                                         read_only=False,
                                                         created_at=created_at)
