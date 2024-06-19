@@ -12,27 +12,39 @@ PROGRESS = 1
 INFO = 2
 DETAIL = 3
 DEBUG = 4
-verbosity = PROGRESS
-def log(level, message, *args, **kwargs):
-    global verbosity
-    if level <= verbosity:
+_verbosity = PROGRESS
+def log(verbosity, message, *args, **kwargs):
+    global _verbosity
+    if verbosity <= _verbosity:
         click.echo(f"[{time.time()-base:.2f}] {message}", *args, **kwargs)
 
-def fetch_items(view, retries, sleep):
-    _retries = retries
-    while _retries:
+_retries = 1
+_sleep = 0
+def _fetch(name, f, args=[], kwargs={}):
+    retries = _retries
+    while retries:
         try:
-            return list(view.items())
+            return f(*args, **kwargs)
         except Exception as e:
-            _retries -= 1
-            time.sleep(sleep)
-    raise RuntimeError(f"failed to fetch items after {retries} retries")
+            retries -= 1
+            time.sleep(_sleep)
+    raise RuntimeError(f"failed to fetch {name} after {_retries} retries")
+
+def fetch_items(view):
+    return _fetch("items", lambda v: list(v.items()), args=[view])
+
+def fetch_run(repo, run_hash):
+    return _fetch("run", lambda r, h: r.get_run(h), args=[repo, run_hash])
+
+def fetch_traces(run_tree):
+    return _fetch("traces", lambda x: x.get('traces', None), args=[run_tree])
 
 def chunker(seq, size):
     return (seq[idx:idx+size] for idx in range(0,len(seq),size))
 
 def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_copy):
     def copy_trees():
+        nonlocal mass_update
         log(DETAIL, "copy run meta tree")
         source_meta_tree = src_repo.request_tree(
             'meta', run_hash, read_only=True, from_union=False, no_cache=True
@@ -41,7 +53,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             'meta', run_hash, read_only=False, from_union=False, no_cache=True
         ).subtree('meta')
         dest_meta_run_tree = dest_meta_tree.subtree('chunks').subtree(run_hash)
-        dest_traces = None if full_copy else dest_meta_run_tree.get('traces', None)
+        dest_traces = None if full_copy else fetch_traces(dest_meta_run_tree)
         dest_meta_tree[...] = source_meta_tree[...]
         dest_index = dest_repo._get_index_tree('meta', timeout=10).view(())
         dest_meta_run_tree.finalize(index=dest_index)
@@ -57,9 +69,8 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
         log(DETAIL, "copy v2 sequences")
         source_v2_tree = source_series_run_tree.subtree(('v2', 'chunks', run_hash))
         dest_v2_tree = dest_series_run_tree.subtree(('v2', 'chunks', run_hash))
-        for ctx_id in tqdm(list(source_v2_tree.keys()), desc="contexts", disable=verbosity < DETAIL):
-            for metric_name in (metric_bar := tqdm(list(source_v2_tree.subtree(ctx_id).keys()), desc="metrics", disable=verbosity < DETAIL)):
-                metric_bar.set_postfix_str(f"{ctx_id}/{metric_name}")
+        for ctx_id in source_v2_tree.keys():
+            for metric_name in source_v2_tree.subtree(ctx_id).keys():
                 log(DEBUG, f"obtain val view for {ctx_id}/{metric_name}")
                 source_val_view = source_v2_tree.subtree((ctx_id, metric_name)).array('val')
                 log(DEBUG, f"obtain step view for {ctx_id}/{metric_name}")
@@ -85,20 +96,34 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
                         _metric = _context.get(metric_name, None)
                         if _metric is not None:
                             last_step = _metric.get('last_step', -1)
-                new_keys = {k for k, v in fetch_items(source_step_view, retries, sleep) if v > last_step}
-                log(DEBUG, f"last step for {metric_name} is {last_step} and there are {len(new_keys)} new keys")
+                new_keys = {k for k, v in fetch_items(source_step_view) if v > last_step}
+                log(DETAIL, f"last step for {metric_name} is {last_step} and there are {len(new_keys)} new keys")
 
+                if mass_update < 0:
+                    try:
+                        dest_val_view.update([])
+                        mass_update = -mass_update
+                        log(DETAIL, f"detected mass update-compatible server - using chunk size of {mass_update}")
+                    except Exception as e:
+                        print(e)
+                        mass_update = 0
+                        log(DETAIL, f"unable to detect mass update-compatible server - deactivating mass update")
                 if mass_update:
-                    for chunk in chunker([x for x in fetch_items(source_val_view, retries, sleep) if x[0] in new_keys], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_val_view) if x[0] in new_keys], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} value items")
                         dest_val_view.update(chunk)
-                    for chunk in chunker([x for x in fetch_items(source_step_view, retries, sleep) if x[0] in new_keys], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_step_view) if x[0] in new_keys], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} step items")
                         dest_step_view.update(chunk)
-                    for chunk in chunker([x for x in fetch_items(source_epoch_view, retries, sleep) if x[0] in new_keys], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_epoch_view) if x[0] in new_keys], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} epoch items")
                         dest_epoch_view.update(chunk)
-                    for chunk in chunker([x for x in fetch_items(source_time_view, retries, sleep) if x[0] in new_keys], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_time_view) if x[0] in new_keys], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} time items")
                         dest_time_view.update(chunk)
                     continue
-                for key, val in tqdm(list(source_val_view.items()), "keys", disable=verbosity < 3):
+                for key, val in fetch_items(source_val_view):
+                    log(DEBUG, f"updating single value, step, epoch, and time")
                     dest_val_view[key] = val
                     dest_step_view[key] = source_step_view[key]
                     dest_epoch_view[key] = source_epoch_view[key]
@@ -108,9 +133,8 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
         log(DETAIL, "copy v1 sequences")
         source_v1_tree = source_series_run_tree.subtree(('chunks', run_hash))
         dest_v1_tree = dest_series_run_tree.subtree(('chunks', run_hash))
-        for ctx_id in tqdm(list(source_v1_tree.keys()), desc="contexts", disable=verbosity < DETAIL):
-            for metric_name in (metric_bar := tqdm(list(source_v1_tree.subtree(ctx_id).keys()), desc="metrics", disable=verbosity < DETAIL)):
-                metric_bar.set_postfix_str(f"{ctx_id}/{metric_name}")
+        for ctx_id in source_v1_tree.keys():
+            for metric_name in source_v1_tree.subtree(ctx_id).keys():
                 log(DEBUG, f"obtain val view for {ctx_id}/{metric_name}")
                 source_val_view = source_v1_tree.subtree((ctx_id, metric_name)).array('val')
                 log(DEBUG, f"obtain epoch view for {ctx_id}/{metric_name}")
@@ -132,17 +156,21 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
                         _metric = _context.get(metric_name, None)
                         if _metric is not None:
                             last_step = _metric.get('last_step', -1)
-                log(DEBUG, f"last step for {metric_name} is {last_step}")
+                log(DETAIL, f"last step for {metric_name} is {last_step} and there are {len([x for x in fetch_items(source_val_view) if x[0] > last_step]) if _verbosity >= DETAIL else None} new keys")
 
                 if mass_update:
-                    for chunk in chunker([x for x in fetch_items(source_val_view, retries, sleep) if x[0] > last_step], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_val_view) if x[0] > last_step], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} value items")
                         dest_val_view.update(chunk)
-                    for chunk in chunker([x for x in fetch_items(source_epoch_view, retries, sleep) if x[0] > last_step], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_epoch_view) if x[0] > last_step], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} epoch items")
                         dest_epoch_view.update(chunk)
-                    for chunk in chunker([x for x in fetch_items(source_time_view, retries, sleep) if x[0] > last_step], size=mass_update):
+                    for chunk in chunker([x for x in fetch_items(source_time_view) if x[0] > last_step], size=mass_update):
+                        log(DEBUG, f"updating {len(chunk)} time items")
                         dest_time_view.update(chunk)
                     continue
-                for key, val in tqdm(list(source_val_view.items()), desc="keys", disable=verbosity < 3):
+                for key, val in fetch_items(source_val_view):
+                    log(DEBUG, f"updating single value, epoch, and time")
                     dest_val_view[key] = val
                     dest_epoch_view[key] = source_epoch_view[key]
                     dest_time_view[key] = source_time_view[key]
@@ -175,16 +203,6 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             copy_trees()
             log(DETAIL, "finished copying run trees")
 
-def fetch_run(repo, run_hash, retries, sleep):
-    _retries = retries
-    while _retries:
-        try:
-            return repo.get_run(run_hash)
-        except Exception as e:
-            _retries -= 1
-            time.sleep(sleep)
-    raise RuntimeError(f"failed to fetch run {run_hash} after {retries} retries")
-
 exit_flag = False
 def signal_handler(sig, frame):
     global exit_flag
@@ -206,13 +224,13 @@ def _sync():
 @click.option("--force", is_flag=True, help="Force synchronization of all runs (default: False)")
 @click.option("--first", default=0, help="First run to synchronize (default: 0)")
 @click.option("--last", default=-1, help="Last run to synchronize (default: -1)")
-@click.option("--mass-update", default=0, help="Mass update chunk size (0 to deactivate) (default: 0)")
+@click.option("--mass-update", default=-128, help="Mass update chunk size (0 to deactivate, negative to detect) (default: -128)")
 @click.option("--raise-errors", is_flag=True, help="Raise errors during synchronization (default: False)")
-@click.option("--verbosity-level", default=verbosity, help="Verbosity of the output (default: {verbosity})")
+@click.option("--verbosity", default=_verbosity, help="Verbosity of the output (default: {_verbosity})")
 @click.option("--full-copy", is_flag=True, help="Full copy of the runs (default: False)")
-def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity_level, full_copy):
-    global verbosity
-    verbosity = verbosity_level
+def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
+    global _verbosity, _retries, _sleep
+    _verbosity, _retries, _sleep = verbosity, retries, sleep
     signal.signal(signal.SIGINT, signal_handler)
     while True:
         src_repo = None
@@ -240,14 +258,14 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat,
                     break
                 try:
                     log(DETAIL, f"fetching run for {run_hash} from destination repository")
-                    dst_run = fetch_run(dst_repo, run_hash, retries=retries, sleep=sleep)
+                    dst_run = fetch_run(dst_repo, run_hash)
                     if force:
                         log(INFO, f"syncing {run_hash}: force synchronization")
                     elif dst_run is None:
                         log(INFO, f"syncing {run_hash}: run hash not found in destination repository")
                     else:
                         log(DETAIL, f"fetching run for {run_hash} from source repository")
-                        src_run = fetch_run(src_repo, run_hash, retries=retries, sleep=sleep)
+                        src_run = fetch_run(src_repo, run_hash)
                         diff = abs(src_run.duration + offset - dst_run.duration)
                         if src_run.active == dst_run.active and diff < eps:
                             log(INFO, f"skipping {run_hash}: run hash exists with {diff} difference in duration")
@@ -263,11 +281,11 @@ def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat,
                     if raise_errors:
                         raise e
             if len(skips) > 0:
-                log(PROGRESS, f"summary: skipped {len(skips)} runs - {skips}")
+                log(PROGRESS, f"summary: skipped {len(skips)} runs - {' '.join(skips)}")
             if len(successes) > 0:
-                log(PROGRESS, f"summary: successfully synchronized {len(successes)} runs - {successes}")
+                log(PROGRESS, f"summary: successfully synchronized {len(successes)} runs - {' '.join(successes)}")
             if len(failures) > 0:
-                log(PROGRESS, f"summary: failed to synchronize {len(failures)} runs - {failures}")
+                log(PROGRESS, f"summary: failed to synchronize {len(failures)} runs - {' '.join(failures)}")
         except Exception as e:
             log(ERROR, f"failure: failed to synchronize runs - {e}")
             if raise_errors:
