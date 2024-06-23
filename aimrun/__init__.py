@@ -4,7 +4,8 @@ from functools import wraps
 import sys
 from threading import Thread
 
-from .commands.sync import graceful_exit, do_sync
+from .commands.sync import do_sync
+from .utils import graceful_exit
 
 _strict = True
 def set_strict(strict):
