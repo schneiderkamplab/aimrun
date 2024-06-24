@@ -1,0 +1,21 @@
+colors:
+  blue:   [112,112,255]
+  orange: [186,228,188]
+  green:  [123,204,123]
+  red:    [255,112,112]
+  purple: [  8,104,172]
+  yellow: [186,186,  0]
+  pink:   [224, 86,224]
+  teal:   [  0,186,224]
+repo: /home/jps/nanoT5
+smooth: [exponential, 64]
+ylim: [2.5, 6]
+
+figure1:
+  metric: train_loss
+  runs:
+    - {hash: df33577d4ddf42639567f9aa, color: red, label: "hidden 128, 16 bit, mean"}
+    - {hash: b5fd78f0db8b4e76a4ca6bc0, color: blue, label: "hidden 128, 1.58, mean)"}
+    - {hash: 4adcd8c7214543c3ad1c3e83, color: green, label: "hidden 128, 1.58 (dense), mean"}
+    - {hash: 73cea71ca5304bdb95c0785f, color: orange, label: "hidden 128, 1.58 (dense), median"}
+

@@ -39,6 +39,23 @@ def plot_multiple_lines(data, colors, legend_labels, ylim, plot_name):
     # Show plot
     plt.savefig(plot_name, bbox_inches='tight')
 
+def smoothening(vector, smooth):
+    if smooth is None:
+        return vector
+    alg, window = smooth
+    if alg == "mean":
+        return [sum(vector[i:i+window])/window for i in range(len(vector)-window+1)]
+    elif alg == "median":
+        return [sorted(vector[i:i+window])[window//2] for i in range(len(vector)-window+1)]
+    elif alg == "exponential":
+        alpha = 2/(window+1)
+        result = [vector[0]]
+        for i in range(1, len(vector)):
+            result.append(alpha*vector[i] + (1-alpha)*result[-1])
+        return result
+    else:
+        raise ValueError(f"unknown smoothing algorithm {alg}")
+
 @click.group()
 def _plot():
     pass
@@ -67,6 +84,7 @@ def do_plot(
         std_color_defs = fs.pop("colors", None)
         std_ylim = fs.pop("ylim", None)
         std_metric = fs.pop("metric", None)
+        std_smooth = fs.pop("smooth", None)
         for fname, fdef in fs.items():
             repo = fdef.get("repo", std_repo)
             if repo is None:
@@ -88,6 +106,7 @@ def do_plot(
             if not runs:
                 log(ERROR, "no runs specified - skipping")
                 continue
+            smooth = fdef.get("smooth", std_smooth)
             done = False
             data = []
             colors = []
@@ -96,7 +115,7 @@ def do_plot(
                 run = Run(run_hash=r["hash"], repo=repo)
                 for seq in run.metrics():
                     if seq.name == metric:
-                        data.append([val for _, (val, _, _) in seq.data.items()])
+                        data.append(smoothening([val for _, (val, _, _) in seq.data.items()], smooth))
                         break
                 else:
                     log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
