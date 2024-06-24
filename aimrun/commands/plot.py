@@ -4,7 +4,14 @@ from matplotlib import pyplot as plt
 import os
 import yaml
 
-from ..utils import install_signal_handler, log, _retries, _sleep, ERROR, _verbosity
+from ..utils import (
+    ERROR,
+    install_signal_handler,
+    get_verbosity,
+    log,
+    set_fetch,
+    set_verbosity,
+)
 
 def plot_multiple_lines(data, colors, legend_labels, ylim, plot_name):
     """
@@ -40,7 +47,7 @@ def _plot():
 @click.option("--output-path", default=".", help="Path to save the plots (default: current directory)")
 @click.option("--retries", default=10, help="Number of retries to fetch run (default: 10)")
 @click.option("--sleep", default=1.0, help="Sleep time in seconds between retries (default: 1.0)")
-@click.option("--verbosity", default=_verbosity, help="Verbosity of the output (default: {_verbosity})")
+@click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
 def plot(figures, output_path, retries, sleep, verbosity):
     install_signal_handler()
     do_plot(figures, output_path, retries, sleep, verbosity)
@@ -50,10 +57,10 @@ def do_plot(
         output_path=".",
         retries=10,
         sleep=1,
-        verbosity=_verbosity,
+        verbosity=get_verbosity(),
     ):
-    global _verbosity, _retries, _sleep
-    _verbosity, _retries, _sleep = verbosity, retries, sleep
+    set_verbosity(verbosity)
+    set_fetch(retries, sleep)
     for fs in figures:
         fs = yaml.safe_load(open(fs))
         std_repo = fs.pop("repo", None)
