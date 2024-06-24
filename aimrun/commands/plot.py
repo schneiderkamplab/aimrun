@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import os
 import yaml
 
-from ..utils import install_signal_handler, log, ERROR, _verbosity
+from ..utils import install_signal_handler, log, _retries, _sleep, ERROR, _verbosity
 
 def plot_multiple_lines(data, colors, legend_labels, ylim, plot_name):
     """

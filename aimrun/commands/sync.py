@@ -5,16 +5,30 @@ import signal
 import time
 from tqdm import tqdm
 
-from ..utils import _fetch, chunker, install_signal_handler, log, ERROR, PROGRESS, INFO, DETAIL, DEBUG, _verbosity, exit_flag
+from ..utils import (
+    ERROR,
+    PROGRESS,
+    INFO,
+    DETAIL,
+    DEBUG,
+    chunker,
+    fetch,
+    get_verbosity,
+    install_signal_handler,
+    log,
+    set_fetch,
+    set_verbosity,
+    should_exit,
+)
 
 def fetch_items(view):
-    return _fetch("items", lambda v: list(v.items()), args=[view])
+    return fetch("items", lambda v: list(v.items()), args=[view])
 
 def fetch_run(repo, run_hash):
-    return _fetch("run", lambda r, h: r.get_run(h), args=[repo, run_hash])
+    return fetch("run", lambda r, h: r.get_run(h), args=[repo, run_hash])
 
 def fetch_traces(run_tree):
-    return _fetch("traces", lambda x: x.get('traces', None), args=[run_tree])
+    return fetch("traces", lambda x: x.get('traces', None), args=[run_tree])
 
 def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_copy):
     def copy_trees():
@@ -130,7 +144,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
                         _metric = _context.get(metric_name, None)
                         if _metric is not None:
                             last_step = _metric.get('last_step', -1)
-                log(DETAIL, f"last step for {metric_name} is {last_step} and there are {len([x for x in fetch_items(source_val_view) if x[0] > last_step]) if _verbosity >= DETAIL else None} new keys")
+                log(DETAIL, f"last step for {metric_name} is {last_step} and there are {len([x for x in fetch_items(source_val_view) if x[0] > last_step]) if get_verbosity() >= DETAIL else None} new keys")
 
                 if mass_update:
                     for chunk in chunker([x for x in fetch_items(source_val_view) if x[0] > last_step], size=mass_update):
@@ -194,7 +208,7 @@ def _sync():
 @click.option("--last", default=-1, help="Last run to synchronize (default: -1)")
 @click.option("--mass-update", default=-128, help="Mass update chunk size (0 to deactivate, negative to detect) (default: -128)")
 @click.option("--raise-errors", is_flag=True, help="Raise errors during synchronization (default: False)")
-@click.option("--verbosity", default=_verbosity, help="Verbosity of the output (default: {_verbosity})")
+@click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
 @click.option("--full-copy", is_flag=True, help="Full copy of the runs (default: False)")
 def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
     install_signal_handler()
@@ -214,11 +228,11 @@ def do_sync(
         last=-1,
         mass_update=-128,
         raise_errors=False,
-        verbosity=_verbosity,
+        verbosity=get_verbosity(),
         full_copy=False,
     ):
-    global _verbosity, _retries, _sleep
-    _verbosity, _retries, _sleep = verbosity, retries, sleep
+    set_verbosity(verbosity)
+    set_fetch(retries, sleep)
     while True:
         src_repo = None
         dst_repo = None
@@ -241,7 +255,7 @@ def do_sync(
             for idx, run_hash in tqdm(enumerate(runs), total=len(runs), disable=verbosity < PROGRESS):
                 if idx < _first or idx > _last:
                     continue
-                if exit_flag:
+                if should_exit():
                     break
                 try:
                     log(DETAIL, f"fetching run for {run_hash} from destination repository")
@@ -282,7 +296,7 @@ def do_sync(
                 src_repo.close()
             if dst_repo is not None:
                 dst_repo.close()
-        if repeat <= 0 or exit_flag:
+        if repeat <= 0 or should_exit():
             return
         wait_time = repeat
         log(INFO, f"waiting {wait_time}s before next repetition: ", nl=False)
@@ -290,7 +304,7 @@ def do_sync(
             time.sleep(min(wait_time, 1.0))
             log(DETAIL, ".", nl=False)
             wait_time -= 1.0
-            if exit_flag:
+            if should_exit():
                 log(DETAIL, " interrupted")
                 return
         log(INFO, " done")
