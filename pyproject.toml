@@ -23,6 +23,8 @@ dependencies = [
     'accelerate',
     'aim',
     #'@git+https://github.com/schneiderkamplab/aim',
+    'matplotlib',
+    'scipy',
 ]
 
 [project.urls]

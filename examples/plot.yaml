@@ -13,6 +13,7 @@ ylim: [2.5, 6]
 
 figure1:
   metric: train_loss
+  smooth: [savitzky-golay, 64, 2]
   runs:
     - {hash: df33577d4ddf42639567f9aa, color: red, label: "hidden 128, 16 bit, mean"}
     - {hash: b5fd78f0db8b4e76a4ca6bc0, color: blue, label: "hidden 128, 1.58, mean)"}

@@ -2,6 +2,7 @@ from aim import Run
 import click
 from matplotlib import pyplot as plt
 import os
+from scipy.signal import savgol_filter
 import yaml
 
 from ..utils import (
@@ -42,7 +43,7 @@ def plot_multiple_lines(data, colors, legend_labels, ylim, plot_name):
 def smoothening(vector, smooth):
     if smooth is None:
         return vector
-    alg, window = smooth
+    alg, window = smooth[:2]
     if alg == "mean":
         return [sum(vector[i:i+window])/window for i in range(len(vector)-window+1)]
     elif alg == "median":
@@ -53,6 +54,8 @@ def smoothening(vector, smooth):
         for i in range(1, len(vector)):
             result.append(alpha*vector[i] + (1-alpha)*result[-1])
         return result
+    elif alg == "savitzky-golay":
+        return savgol_filter(vector, window, smooth[2])
     else:
         raise ValueError(f"unknown smoothing algorithm {alg}")
 

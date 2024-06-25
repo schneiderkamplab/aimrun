@@ -242,7 +242,7 @@ def do_sync(
             log(DETAIL, f"opening destination repository at {dst_repo_path}")
             dst_repo = Repo(path=dst_repo_path)
             log(DETAIL, f"fetching runs from source repository")
-            runs = run if run else [run.hash for run in src_repo.iter_runs()]
+            runs = [r for ru in run for r in ru.split()] if run else [run.hash for run in src_repo.iter_runs()]
             successes = []
             failures = []
             skips = []
