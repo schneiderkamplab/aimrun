@@ -33,6 +33,7 @@ def fetch_traces(run_tree):
 def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_copy):
     def copy_trees():
         nonlocal mass_update
+        num_chunks = num_items = 0
         log(DETAIL, "copy run meta tree")
         source_meta_tree = src_repo.request_tree(
             'meta', run_hash, read_only=True, from_union=False, no_cache=True
@@ -100,22 +101,32 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
                     for chunk in chunker([x for x in fetch_items(source_val_view) if x[0] in new_keys], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} value items")
                         dest_val_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     for chunk in chunker([x for x in fetch_items(source_step_view) if x[0] in new_keys], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} step items")
                         dest_step_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     for chunk in chunker([x for x in fetch_items(source_epoch_view) if x[0] in new_keys], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} epoch items")
                         dest_epoch_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     for chunk in chunker([x for x in fetch_items(source_time_view) if x[0] in new_keys], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} time items")
                         dest_time_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     continue
-                for key, val in fetch_items(source_val_view):
+                for key, val in (x for x in fetch_items(source_val_view) if x[0] in new_keys):
                     log(DEBUG, f"updating single value, step, epoch, and time")
                     dest_val_view[key] = val
                     dest_step_view[key] = source_step_view[key]
                     dest_epoch_view[key] = source_epoch_view[key]
                     dest_time_view[key] = source_time_view[key]
+                    num_chunks += 4
+                    num_items += 4
         log(DETAIL, "finished syncing v2 sequences")
 
         log(DETAIL, "copy v1 sequences")
@@ -150,20 +161,29 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
                     for chunk in chunker([x for x in fetch_items(source_val_view) if x[0] > last_step], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} value items")
                         dest_val_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     for chunk in chunker([x for x in fetch_items(source_epoch_view) if x[0] > last_step], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} epoch items")
                         dest_epoch_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     for chunk in chunker([x for x in fetch_items(source_time_view) if x[0] > last_step], size=mass_update):
                         log(DEBUG, f"updating {len(chunk)} time items")
                         dest_time_view.update(chunk)
+                        num_chunks += 1
+                        num_items += len(chunk)
                     continue
-                for key, val in fetch_items(source_val_view):
+                for key, val in (x for x in fetch_items(source_val_view) if x[0] > last_step):
                     log(DEBUG, f"updating single value, epoch, and time")
                     dest_val_view[key] = val
                     dest_epoch_view[key] = source_epoch_view[key]
                     dest_time_view[key] = source_time_view[key]
+                    num_chunks += 3
+                    num_items += 3
         log(DETAIL, "finished syncing v1 sequences")
         del dest_v1_tree, dest_v2_tree, dest_series_run_tree, dest_meta_tree, dest_index, dest_meta_run_tree
+        return num_chunks, num_items
 
     def copy_structured_props():
         log(DETAIL, "copy run structured properties")
@@ -180,7 +200,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             dest_structured_run.add_tag(source_tag)
 
     if dest_repo.is_remote_repo:
-        copy_trees()
+        num_chunks, num_items = copy_trees()
         log(DETAIL, "finished copying run trees")
         copy_structured_props()
         log(DETAIL, "finished copying run structured properties")
@@ -188,8 +208,9 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
         with dest_repo.structured_db:
             copy_structured_props()
             log(DETAIL, "finished copying run structured properties")
-            copy_trees()
+            num_chunks, num_items = copy_trees()
             log(DETAIL, "finished copying run trees")
+    log(INFO, f"copied {num_chunks} chunks with a total of {num_items} items")
 
 @click.group()
 def _sync():
