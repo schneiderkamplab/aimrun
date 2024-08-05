@@ -5,8 +5,8 @@ import time
 # logging
 base = time.time()
 ERROR = 0
-PROGRESS = 1
-INFO = 2
+INFO = 1
+PROGRESS = 2
 DETAIL = 3
 DEBUG = 4
 _verbosity = PROGRESS

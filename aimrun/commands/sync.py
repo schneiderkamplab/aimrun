@@ -1,7 +1,6 @@
 from aim import Repo
 import click
 import datetime
-import signal
 import time
 from tqdm import tqdm
 
@@ -210,7 +209,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             log(DETAIL, "finished copying run structured properties")
             num_chunks, num_items = copy_trees()
             log(DETAIL, "finished copying run trees")
-    log(INFO, f"copied {num_chunks} chunks with a total of {num_items} items")
+    return num_chunks, num_items
 
 @click.group()
 def _sync():
@@ -294,8 +293,8 @@ def do_sync(
                             skips.append(run_hash)
                             continue
                         log(INFO, f"syncing {run_hash}: run hash exists with {diff} difference in duration")
-                    sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update, retries=retries, sleep=sleep, full_copy=full_copy)
-                    log(INFO, f"sucesss: successfully synchronized {run_hash}")
+                    num_chunks, num_items = sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update, retries=retries, sleep=sleep, full_copy=full_copy)
+                    log(INFO, f"sucesss: successfully synchronized {run_hash} ({num_chunks} chunks and {num_items} items copied)")
                     successes.append(run_hash)
                 except Exception as e:
                     log(ERROR, f"failure: failed to synchronize {run_hash} - {e}")
