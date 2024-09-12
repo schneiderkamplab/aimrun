@@ -110,6 +110,7 @@ def do_plot(
                 log(ERROR, "no runs specified - skipping")
                 continue
             smooth = fdef.get("smooth", std_smooth)
+            scale = fdef.get("scale", 1.0)
             done = False
             data = []
             colors = []
@@ -118,7 +119,7 @@ def do_plot(
                 run = Run(run_hash=r["hash"], repo=repo)
                 for seq in run.metrics():
                     if seq.name == metric:
-                        data.append(smoothening([val for _, (val, _, _) in seq.data.items()], smooth))
+                        data.append(smoothening([val*scale for _, (val, _, _) in seq.data.items()], smooth))
                         break
                 else:
                     log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
