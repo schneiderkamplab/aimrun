@@ -14,7 +14,7 @@ from ..utils import (
     set_verbosity,
 )
 
-def plot_multiple_lines(data, colors, legend_labels, ylim, plot_name):
+def plot_multiple_lines(data, colors, legend_labels, xlim, ylim, plot_name):
     """
     Create a line plot with multiple lines, a legend, and custom colors.
     
@@ -35,8 +35,12 @@ def plot_multiple_lines(data, colors, legend_labels, ylim, plot_name):
         plt.plot(line_data, color=colors[i], label=legend_labels[i])
     # Add legend
     plt.legend(loc='upper left')
-    # Set axis range
-    plt.ylim(ylim)
+    # Set axis x range
+    if xlim is not None:
+        plt.xlim(xlim)
+    # Set axis y range
+    if ylim is not None:
+        plt.ylim(ylim)
     # Show plot
     plt.savefig(plot_name, bbox_inches='tight')
 
@@ -85,6 +89,7 @@ def do_plot(
         fs = yaml.safe_load(open(fs))
         std_repo = fs.pop("repo", None)
         std_color_defs = fs.pop("colors", None)
+        std_xlim = fs.pop("xlim", None)
         std_ylim = fs.pop("ylim", None)
         std_metric = fs.pop("metric", None)
         std_smooth = fs.pop("smooth", None)
@@ -97,10 +102,8 @@ def do_plot(
             if color_defs is None:
                 log(ERROR, "no colors specified - skipping")
                 continue
+            xlim = fdef.get("xlim", std_xlim)
             ylim = fdef.get("ylim", std_ylim)
-            if ylim is None:
-                log(ERROR, "no ylim specified - skipping")
-                continue
             metric = fdef.get("metric", std_metric)
             if metric is None:
                 log(ERROR, "no metric specified - skipping")
@@ -110,16 +113,16 @@ def do_plot(
                 log(ERROR, "no runs specified - skipping")
                 continue
             smooth = fdef.get("smooth", std_smooth)
-            scale = fdef.get("scale", 1.0)
             done = False
             data = []
             colors = []
             labels = []
             for r in runs:
-                run = Run(run_hash=r["hash"], repo=repo)
+                run = Run(run_hash=r["hash"], repo=repo, read_only=True)
+                scale = r.get("scale", 1.0)
                 for seq in run.metrics():
                     if seq.name == metric:
-                        data.append(smoothening([val*scale for _, (val, _, _) in seq.data.items()], smooth))
+                        data.append(smoothening([val/scale for _, (val, _, _) in seq.data.items()], smooth))
                         break
                 else:
                     log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
@@ -134,6 +137,7 @@ def do_plot(
                 data=data,
                 colors=colors,
                 legend_labels=labels,
+                xlim=xlim,
                 ylim=ylim,
                 plot_name=os.path.join(output_path, fname+".png"),
             )
