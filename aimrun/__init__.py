@@ -5,22 +5,7 @@ import sys
 from threading import Thread
 
 from .commands.sync import do_sync
-from .utils import graceful_exit
-
-_strict = True
-def set_strict(strict):
-    global _strict
-    _strict = strict
-
-_repo = None
-def set_default_repo(repo):
-    global _repo
-    _repo = repo
-
-_runs = []
-_threads = []
-def get_runs():
-    return _runs
+from .utils import clean_args, get_repo, get_runs, get_strict, get_threads, graceful_exit, set_repo
 
 def on_main_process(function):
     @wraps(function)
@@ -30,45 +15,44 @@ def on_main_process(function):
 
 @on_main_process
 def _track(*args, **kwargs):
-    for run in _runs:
+    for run in get_runs():
         run.track(*args, **kwargs)
 
 @on_main_process
 def _close():
-    for run in _runs:
+    for run in get_runs():
         run.close()
     graceful_exit()
-    for thread in _threads:
+    for thread in get_threads():
         thread.join()
 
 @on_main_process
-def _init(repo=_repo, description=None, args=None, sync_repo=None, sync_args={}, **kwargs):
-    global _runs
+def _init(repo=get_repo(), description=None, args=None, sync_repo=None, sync_args={}, **kwargs):
     if args is None:
-        if _strict:
+        if get_strict():
             raise ValueError("args is None - please provide a dictionary of hyperparameters to track!")
         else:
             print("WARNING: args is None - expecting a dictionary of hyperparameters to track.", file=sys.stderr)
     if repo is None:
-        if _strict:
+        if get_strict():
             raise ValueError("repo is None - please provide a repository to track the experiment!")
         else:
             print("WARNING: repo is None - defaulting to local repository to track the experiment.", file=sys.stderr)
     run = aim.Run(repo=repo, **kwargs)
     if args is not None:
-        run['args'] = args
+        run['args'] = clean_args(args)
     if description is not None:
         run['description'] = description
-    _runs.append(run)
+    get_runs().append(run)
     if sync_repo is not None:
         thread = Thread(target=do_sync, args=(repo, sync_repo, [run.hash]), kwargs=sync_args)
         thread.start()
-        _threads.append(thread)
+        get_threads().append(thread)
     return run
 
 # aimrun interface
 
-def init(repo=_repo, args=None, **kwargs):
+def init(repo=get_repo(), args=None, **kwargs):
     _init(repo=repo, args=args, **kwargs)
 
 def track(*args, **kwargs):
@@ -91,7 +75,7 @@ class wandb:
         _close()
     @staticmethod
     def set_default_repo(repo):
-        set_default_repo(repo)
+        set_repo(repo)
 
 # aim interface
 

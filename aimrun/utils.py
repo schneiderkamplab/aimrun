@@ -1,6 +1,30 @@
 import click
+from enum import Enum
 import signal
 import time
+
+# global state
+_strict = True
+def get_strict():
+    return _strict
+def set_strict(strict):
+    global _strict
+    _strict = strict
+
+_repo = None
+def get_repo():
+    return _repo
+def set_repo(repo):
+    global _repo
+    _repo = repo
+
+_runs = []
+def get_runs():
+    return _runs
+
+_threads = []
+def get_threads():
+    return _threads
 
 # logging
 base = time.time()
@@ -52,3 +76,17 @@ def install_signal_handler():
     signal.signal(signal.SIGINT, signal_handler)
 def should_exit():
     return exit_flag
+
+#sanitizing
+def clean_args(obj):
+    if isinstance(obj, dict):
+        return {k: clean_args(v) for k, v in obj.items()}
+    if isinstance(obj, list) or isinstance(obj, tuple) or isinstance(obj, set):
+        return [clean_args(v) for v in obj]
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, str) or isinstance(obj, int) or isinstance(obj, float) or isinstance(obj, bool) or obj is None:
+        return obj
+    if get_strict():
+        raise ValueError(f"Unexpected type {type(obj)} for {repr(obj)}")
+    return repr(obj)
