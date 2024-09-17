@@ -7,6 +7,7 @@ import yaml
 
 from ..utils import (
     ERROR,
+    INFO,
     install_signal_handler,
     get_verbosity,
     log,
@@ -86,6 +87,7 @@ def do_plot(
     set_verbosity(verbosity)
     set_fetch(retries, sleep)
     for fs in figures:
+        log(INFO, f"Loading {fs}")
         fs = yaml.safe_load(open(fs))
         std_repo = fs.pop("repo", None)
         std_color_defs = fs.pop("colors", None)
@@ -94,6 +96,8 @@ def do_plot(
         std_metric = fs.pop("metric", None)
         std_smooth = fs.pop("smooth", None)
         for fname, fdef in fs.items():
+            log(INFO, '-'*40)
+            log(INFO, f"Processing figure {fname}")
             repo = fdef.get("repo", std_repo)
             if repo is None:
                 log(ERROR, "no repository specified - skipping")
@@ -118,6 +122,7 @@ def do_plot(
             colors = []
             labels = []
             for r in runs:
+                log(INFO, f"Fetching run {r['hash']}")
                 run = Run(run_hash=r["hash"], repo=repo, read_only=True)
                 scale = r.get("scale", 1.0)
                 for seq in run.metrics():
@@ -133,11 +138,14 @@ def do_plot(
                 done = True
             if not done:
                 continue
+            plot_name = os.path.join(output_path, f"{fname}.png")
+            log(INFO, f"Plotting to {plot_name}")
             plot_multiple_lines(
                 data=data,
                 colors=colors,
                 legend_labels=labels,
                 xlim=xlim,
                 ylim=ylim,
-                plot_name=os.path.join(output_path, fname+".png"),
+                plot_name=plot_name,
             )
+        log(INFO, '='*40)
