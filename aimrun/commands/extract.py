@@ -40,13 +40,13 @@ def do_extract(
     repo = Repo(path=repo_path)
     log(DETAIL, f"fetching runs from repository")
     runs = [r for ru in run for r in ru.split()] if run else [run.hash for run in repo.iter_runs()]
-    for run in runs:
-        log(INFO, f"Fetching run {run}")
+    for run_hash in runs:
+        log(INFO, f"Fetching run {run_hash}")
         run = Run(run_hash=run, repo=repo_path, read_only=True)
         logs = run.get_terminal_logs().values.tolist()
         logs = [x.data for x in logs]
         logs = '\n'.join(logs)
-        file_name = os.path.join(output_path, f'{run}.log')
+        file_name = os.path.join(output_path, f'{run_hash}.log')
         with open(file_name, 'w') as f:
             f.write(logs)
         log(INFO, f"Logs saved to {file_name}")
