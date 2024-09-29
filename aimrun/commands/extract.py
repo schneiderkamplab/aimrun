@@ -42,7 +42,7 @@ def do_extract(
     runs = [r for ru in run for r in ru.split()] if run else [run.hash for run in repo.iter_runs()]
     for run_hash in runs:
         log(INFO, f"Fetching run {run_hash}")
-        run = Run(run_hash=run, repo=repo_path, read_only=True)
+        run = Run(run_hash=run_hash, repo=repo_path, read_only=True)
         logs = run.get_terminal_logs().values.tolist()
         logs = [x.data for x in logs]
         logs = '\n'.join(logs)
