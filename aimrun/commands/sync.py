@@ -1,4 +1,4 @@
-from aim import Repo
+from aim import Repo, Run
 import click
 import datetime
 import time
@@ -325,6 +325,10 @@ def do_sync(
                 src_repo.close()
             if dst_repo is not None:
                 dst_repo.close()
+            if retarget is not None:
+                log(DETAIL, f"finalizing retargeted run {retarget}")
+                run = Run(run_hash=retarget, repo=dst_repo_path, read_only=False)
+                run.close()
         if repeat <= 0 or should_exit():
             return
         wait_time = repeat
