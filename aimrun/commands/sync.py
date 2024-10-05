@@ -218,7 +218,7 @@ def _sync():
 @click.argument("src_repo_path", type=str)
 @click.argument("dst_repo_path", type=str)
 @click.option("--run", default=None, multiple=True, help="Specific run hash(es) to synchronize (default: None)")
-@click.option("--rename", default=None, type=str, help="Rename run hash to the new name (default: None)")
+@click.option("--retarget", default=None, type=str, help="Retarget source run hash to this destination run hash (default: None)")
 @click.option("--offset", default=0, help="Offset for the duration in seconds (default: 0)")
 @click.option("--eps", default=0.00001, help="Error margin for the duration (default: 1e5)")
 @click.option("--retries", default=10, help="Number of retries to fetch run (default: 10)")
@@ -231,15 +231,15 @@ def _sync():
 @click.option("--raise-errors", is_flag=True, help="Raise errors during synchronization (default: False)")
 @click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
 @click.option("--full-copy", is_flag=True, help="Full copy of the runs (default: False)")
-def sync(src_repo_path, dst_repo_path, run, rename, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
+def sync(src_repo_path, dst_repo_path, run, retarget, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
     install_signal_handler()
-    do_sync(src_repo_path, dst_repo_path, run, rename, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy)
+    do_sync(src_repo_path, dst_repo_path, run, retarget, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy)
 
 def do_sync(
         src_repo_path,
         dst_repo_path,
         run,
-        rename=None,
+        retarget=None,
         offset=0,
         eps=0.00001,
         retries=10,
@@ -265,8 +265,8 @@ def do_sync(
             dst_repo = Repo(path=dst_repo_path)
             log(DETAIL, f"fetching runs from source repository")
             runs = [r for ru in run for r in ru.split()] if run else [run.hash for run in src_repo.iter_runs()]
-            if rename is not None and len(runs) > 1:
-                log(ERROR, "cannot rename multiple runs - please specify only one run")
+            if retarget is not None and len(runs) > 1:
+                log(ERROR, "cannot retarget multiple runs - please specify only one run")
                 return
             successes = []
             failures = []
@@ -283,11 +283,11 @@ def do_sync(
                 if should_exit():
                     break
                 try:
-                    dst_run_hash = run_hash if rename is None else rename
+                    dst_run_hash = run_hash if retarget is None else retarget
                     log(DETAIL, f"fetching run for {dst_run_hash} from destination repository")
                     dst_run = fetch_run(dst_repo, dst_run_hash)
-                    if dst_run is None and rename is not None:
-                        log.ERROR(f"run hash {dst_run_hash} needs to be created in destination repository when renaming")
+                    if dst_run is None and retarget is not None:
+                        log.ERROR(f"run hash {dst_run_hash} needs to be created in destination repository when retargeting")
                         return
                     if force:
                         log(INFO, f"syncing {dst_run_hash}: force synchronization")
