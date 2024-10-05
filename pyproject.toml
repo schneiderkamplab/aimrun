@@ -24,6 +24,7 @@ dependencies = [
     'aim',
     #'@git+https://github.com/schneiderkamplab/aim',
     'matplotlib',
+    'pandas',
     'scipy',
 ]
 
