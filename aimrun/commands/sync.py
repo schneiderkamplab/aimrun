@@ -29,7 +29,7 @@ def fetch_run(repo, run_hash):
 def fetch_traces(run_tree):
     return fetch("traces", lambda x: x.get('traces', None), args=[run_tree])
 
-def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_copy):
+def sync_run(src_repo, run_hash, dest_repo, dest_run_hash, mass_update, retries, sleep, full_copy):
     def copy_trees():
         nonlocal mass_update
         num_chunks = num_items = 0
@@ -38,9 +38,9 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             'meta', run_hash, read_only=True, from_union=False, no_cache=True
         ).subtree('meta')
         dest_meta_tree = dest_repo.request_tree(
-            'meta', run_hash, read_only=False, from_union=False, no_cache=True
+            'meta', dest_run_hash, read_only=False, from_union=False, no_cache=True
         ).subtree('meta')
-        dest_meta_run_tree = dest_meta_tree.subtree('chunks').subtree(run_hash)
+        dest_meta_run_tree = dest_meta_tree.subtree('chunks').subtree(dest_run_hash)
         dest_traces = None if full_copy else fetch_traces(dest_meta_run_tree)
         dest_meta_tree[...] = source_meta_tree[...]
         dest_index = dest_repo._get_index_tree('meta', timeout=10).view(())
@@ -51,12 +51,12 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
             'seqs', run_hash, read_only=True, no_cache=True
         ).subtree('seqs')
         dest_series_run_tree = dest_repo.request_tree(
-            'seqs', run_hash, read_only=False, no_cache=True
+            'seqs', dest_run_hash, read_only=False, no_cache=True
         ).subtree('seqs')
 
         log(DETAIL, "copy v2 sequences")
         source_v2_tree = source_series_run_tree.subtree(('v2', 'chunks', run_hash))
-        dest_v2_tree = dest_series_run_tree.subtree(('v2', 'chunks', run_hash))
+        dest_v2_tree = dest_series_run_tree.subtree(('v2', 'chunks', dest_run_hash))
         for ctx_id in source_v2_tree.keys():
             for metric_name in source_v2_tree.subtree(ctx_id).keys():
                 log(DEBUG, f"obtain val view for {ctx_id}/{metric_name}")
@@ -130,7 +130,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
 
         log(DETAIL, "copy v1 sequences")
         source_v1_tree = source_series_run_tree.subtree(('chunks', run_hash))
-        dest_v1_tree = dest_series_run_tree.subtree(('chunks', run_hash))
+        dest_v1_tree = dest_series_run_tree.subtree(('chunks', dest_run_hash))
         for ctx_id in source_v1_tree.keys():
             for metric_name in source_v1_tree.subtree(ctx_id).keys():
                 log(DEBUG, f"obtain val view for {ctx_id}/{metric_name}")
@@ -188,7 +188,7 @@ def sync_run(src_repo, run_hash, dest_repo, mass_update, retries, sleep, full_co
         log(DETAIL, "copy run structured properties")
         source_structured_run = src_repo.request_props(run_hash, read_only=True) #structured_db.find_run(run_hash)
         created_at = datetime.datetime.fromtimestamp(source_structured_run.creation_time, tz=datetime.timezone.utc)
-        dest_structured_run = dest_repo.request_props(run_hash,
+        dest_structured_run = dest_repo.request_props(dest_run_hash,
                                                         read_only=False,
                                                         created_at=created_at)
         dest_structured_run.name = source_structured_run.name
@@ -218,6 +218,7 @@ def _sync():
 @click.argument("src_repo_path", type=str)
 @click.argument("dst_repo_path", type=str)
 @click.option("--run", default=None, multiple=True, help="Specific run hash(es) to synchronize (default: None)")
+@click.option("--rename", default=None, type=str, help="Rename run hash to the new name (default: None)")
 @click.option("--offset", default=0, help="Offset for the duration in seconds (default: 0)")
 @click.option("--eps", default=0.00001, help="Error margin for the duration (default: 1e5)")
 @click.option("--retries", default=10, help="Number of retries to fetch run (default: 10)")
@@ -230,14 +231,15 @@ def _sync():
 @click.option("--raise-errors", is_flag=True, help="Raise errors during synchronization (default: False)")
 @click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
 @click.option("--full-copy", is_flag=True, help="Full copy of the runs (default: False)")
-def sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
+def sync(src_repo_path, dst_repo_path, run, rename, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy):
     install_signal_handler()
-    do_sync(src_repo_path, dst_repo_path, run, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy)
+    do_sync(src_repo_path, dst_repo_path, run, rename, offset, eps, retries, sleep, repeat, force, first, last, mass_update, raise_errors, verbosity, full_copy)
 
 def do_sync(
         src_repo_path,
         dst_repo_path,
         run,
+        rename=None,
         offset=0,
         eps=0.00001,
         retries=10,
@@ -263,6 +265,9 @@ def do_sync(
             dst_repo = Repo(path=dst_repo_path)
             log(DETAIL, f"fetching runs from source repository")
             runs = [r for ru in run for r in ru.split()] if run else [run.hash for run in src_repo.iter_runs()]
+            if rename is not None and len(runs) > 1:
+                log(ERROR, "cannot rename multiple runs - please specify only one run")
+                return
             successes = []
             failures = []
             skips = []
@@ -278,12 +283,16 @@ def do_sync(
                 if should_exit():
                     break
                 try:
-                    log(DETAIL, f"fetching run for {run_hash} from destination repository")
-                    dst_run = fetch_run(dst_repo, run_hash)
+                    dst_run_hash = run_hash if rename is None else rename
+                    log(DETAIL, f"fetching run for {dst_run_hash} from destination repository")
+                    dst_run = fetch_run(dst_repo, dst_run_hash)
+                    if dst_run is None and rename is not None:
+                        log.ERROR(f"run hash {dst_run_hash} needs to be created in destination repository when renaming")
+                        return
                     if force:
-                        log(INFO, f"syncing {run_hash}: force synchronization")
+                        log(INFO, f"syncing {dst_run_hash}: force synchronization")
                     elif dst_run is None:
-                        log(INFO, f"syncing {run_hash}: run hash not found in destination repository")
+                        log(INFO, f"syncing {dst_run_hash}: run hash not found in destination repository")
                     else:
                         log(DETAIL, f"fetching run for {run_hash} from source repository")
                         src_run = fetch_run(src_repo, run_hash)
@@ -293,8 +302,8 @@ def do_sync(
                             skips.append(run_hash)
                             continue
                         log(INFO, f"syncing {run_hash}: run hash exists with {diff} difference in duration")
-                    num_chunks, num_items = sync_run(src_repo, run_hash, dst_repo, mass_update=mass_update, retries=retries, sleep=sleep, full_copy=full_copy)
-                    log(INFO, f"sucesss: successfully synchronized {run_hash} ({num_chunks} chunks and {num_items} items copied)")
+                    num_chunks, num_items = sync_run(src_repo, run_hash, dst_repo, dst_run_hash, mass_update=mass_update, retries=retries, sleep=sleep, full_copy=full_copy)
+                    log(INFO, f"sucesss: successfully synchronized {run_hash} to {dst_run_hash} ({num_chunks} chunks and {num_items} items copied)")
                     successes.append(run_hash)
                 except Exception as e:
                     log(ERROR, f"failure: failed to synchronize {run_hash} - {e}")
