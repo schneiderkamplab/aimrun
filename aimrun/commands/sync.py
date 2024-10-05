@@ -287,7 +287,7 @@ def do_sync(
                     log(DETAIL, f"fetching run for {dst_run_hash} from destination repository")
                     dst_run = fetch_run(dst_repo, dst_run_hash)
                     if dst_run is None and retarget is not None:
-                        log.ERROR(f"run hash {dst_run_hash} needs to be created in destination repository when retargeting")
+                        log(ERROR, f"run hash {dst_run_hash} needs to be created in destination repository when retargeting")
                         return
                     if force:
                         log(INFO, f"syncing {dst_run_hash}: force synchronization")
