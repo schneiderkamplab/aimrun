@@ -15,7 +15,7 @@ from ..utils import (
     set_verbosity,
 )
 
-def plot_multiple_lines(data, colors, legend_labels, xlim, ylim, plot_name):
+def plot_multiple_lines(data, colors, legend_labels, legend_properties, xlim, ylim, plot_name):
     """
     Create a line plot with multiple lines, a legend, and custom colors.
     
@@ -35,7 +35,7 @@ def plot_multiple_lines(data, colors, legend_labels, xlim, ylim, plot_name):
     for i, line_data in enumerate(data):
         plt.plot(line_data, color=colors[i], label=legend_labels[i])
     # Add legend
-    plt.legend(loc='upper left')
+    plt.legend(**legend_properties)
     # Set axis x range
     if xlim is not None:
         plt.xlim(xlim)
@@ -95,6 +95,7 @@ def do_plot(
         std_ylim = fs.pop("ylim", None)
         std_metric = fs.pop("metric", None)
         std_smooth = fs.pop("smooth", None)
+        std_legend_prop = fs.pop("legend_props", None)
         for fname, fdef in fs.items():
             log(INFO, '-'*40)
             log(INFO, f"Processing figure {fname}")
@@ -117,6 +118,7 @@ def do_plot(
                 log(ERROR, "no runs specified - skipping")
                 continue
             smooth = fdef.get("smooth", std_smooth)
+            legend_prop = fdef.get("legend_props", std_legend_prop)
             done = False
             data = []
             colors = []
@@ -144,6 +146,7 @@ def do_plot(
                 data=data,
                 colors=colors,
                 legend_labels=labels,
+                legend_properties=legend_prop,
                 xlim=xlim,
                 ylim=ylim,
                 plot_name=plot_name,
