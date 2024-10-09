@@ -128,7 +128,7 @@ def do_plot(
                 for seq in run.metrics():
                     if seq.name == metric:
                         raw_data = [val/scale for _, (val, _, _) in seq.data.items()]
-                        raw_data = raw_data[r.get("min", 0), r.get("max", len(raw_data))]
+                        raw_data = raw_data[r.get("min", 0):r.get("max", len(raw_data))]
                         raw_data = smoothening(raw_data, smooth)
                         offset = r.get("offset", 0)
                         indices = list(range(1+offset, len(raw_data)+1+offset))
