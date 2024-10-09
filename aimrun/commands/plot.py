@@ -33,7 +33,7 @@ def plot_multiple_lines(data, colors, legend_labels, xlim, ylim, plot_name):
     plt.tight_layout(pad=0.2)
     # Plot each line
     for i, line_data in enumerate(data):
-        plt.plot(line_data, color=colors[i], label=legend_labels[i])
+        plt.plot(*line_data, color=colors[i], label=legend_labels[i])
     # Add legend
     plt.legend(loc='upper left')
     # Set axis x range
@@ -127,7 +127,12 @@ def do_plot(
                 scale = r.get("scale", 1.0)
                 for seq in run.metrics():
                     if seq.name == metric:
-                        data.append(smoothening([val/scale for _, (val, _, _) in seq.data.items()], smooth))
+                        raw_data = [val/scale for _, (val, _, _) in seq.data.items()]
+                        raw_data = raw_data[r.get("min", 0), r.get("max", len(raw_data))]
+                        raw_data = smoothening(raw_data, smooth)
+                        offset = r.get("offset", 0)
+                        indices = list(range(1+offset, len(raw_data)+1+offset))
+                        data.append((indices,raw_data))
                         break
                 else:
                     log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
