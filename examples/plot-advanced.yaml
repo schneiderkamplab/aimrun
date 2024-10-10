@@ -7,19 +7,37 @@ colors:
   yellow: [186,186,  0]
   pink:   [224, 86,224]
   teal:   [  0,186,224]
-repo: /home/jschneid/fast/OLMo
-ylim: [2.5, 6]
+repo: /leonardo/home/userexternal/jschneid/fast/OLMo
+smooth: [exponential, 64]
+ylim: [2.5, 5]
 
-figure1:
+cpt:
   metric: train/CrossEntropyLoss
   runs:
     - {hash: c5ec9cf0e4f4441c9d873875, color: red, label: "cpt-16-0K-8K"}
     - {hash: 5a9325f1047744b09ea5e082, color: blue, label: "cpt-1.58-0K-8K"}
-    - {hash: 688f38e47f724283b911ce65, color: green, label: "cpt-16-2K-1.58-2K-8K", max: 3000, offset: 2000}
-    - {hash: 2f4e34d03c7940f3a3742d6f, color: orange, label: "cpt-16-4K-1.58-4K-8K", max: 2000, offset: 4000}
-    - {hash: c90f863b9a074dcb8e89ea17, color: purple, label: "cpt-16-6K-1.58-6K-8K", max: 1000, offset: 6000}
-    - {hash: 9c452a239cca42a98dd86f40, color: yellow, label: "cpt-16-2K-opt-1.58-2K-8K", max: 1000, offset: 2000}
-    - {hash: 6b41bc5496bd48f9847e2e52, color: pink, label: "cpt-16-4K-opt-1.58-4K-8K", max: 1000, offset: 4000}
-    - {hash: 627865289a0346b4b2c0355b, color: teal, label: "cpt-16-6K-opt-1.58-6K-8K", max: 1000, offset: 6000}
+    - {hash: 688f38e47f724283b911ce65, color: green, label: "cpt-16-2K-1.58-2K-8K", max: 6000, offset: 2000}
+    - {hash: 2f4e34d03c7940f3a3742d6f, color: orange, label: "cpt-16-4K-1.58-4K-8K", max: 4000, offset: 4000}
+    - {hash: c90f863b9a074dcb8e89ea17, color: purple, label: "cpt-16-6K-1.58-6K-8K", max: 2000, offset: 6000}
 
+cpt-opt:
+  metric: train/CrossEntropyLoss
+  runs:
+    - {hash: c5ec9cf0e4f4441c9d873875, color: red, label: "cpt-16-0K-8K"}
+    - {hash: 5a9325f1047744b09ea5e082, color: blue, label: "cpt-1.58-0K-8K"}
+    - {hash: 688f38e47f724283b911ce65, color: green, label: "cpt-16-2K-1.58-2K-8K", max: 6000, offset: 2000}
+    - {hash: 2f4e34d03c7940f3a3742d6f, color: orange, label: "cpt-16-4K-1.58-4K-8K", max: 4000, offset: 4000}
+    - {hash: c90f863b9a074dcb8e89ea17, color: purple, label: "cpt-16-6K-1.58-6K-8K", max: 2000, offset: 6000}
+    - {hash: 9c452a239cca42a98dd86f40, color: yellow, label: "cpt-16-2K-opt-1.58-2K-8K", max: 6000, offset: 2000}
+    - {hash: 6b41bc5496bd48f9847e2e52, color: pink, label: "cpt-16-4K-opt-1.58-4K-8K", max: 4000, offset: 4000}
+    - {hash: 627865289a0346b4b2c0355b, color: teal, label: "cpt-16-6K-opt-1.58-6K-8K", max: 2000, offset: 6000}
 
+cpt-long:
+  metric: train/CrossEntropyLoss
+  ylim: [2.5, 3.5]
+  runs:
+    - - {hash: c5ec9cf0e4f4441c9d873875, color: red, label: "cpt-16-0K-24K"}
+      - {hash: 0401151adb3846d4adbfd95b, offset: 8000}
+      - {hash: c0ddd77ebd474a5395a9ec92, offset: 16000} 
+    - {hash: 5a9325f1047744b09ea5e082, color: blue, label: "cpt-1.58-0K-8K"}
+    - {hash: 57f22f84c42e4d45946c2df8, color: orange, label: "cpt-16-8K-opt-1.58-8K-16K", offset: 16000}
