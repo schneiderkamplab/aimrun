@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aimrun"
-version = "0.9.3"
+version = "0.9.4"
 authors = [
   { name = "Peter Schneider-Kamp" },
   { name = "Jacob Nielsen" },
