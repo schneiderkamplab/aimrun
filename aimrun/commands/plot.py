@@ -122,23 +122,41 @@ def do_plot(
             colors = []
             labels = []
             for r in runs:
-                log(INFO, f"Fetching run {r['hash']}")
-                run = Run(run_hash=r["hash"], repo=repo, read_only=True)
-                scale = r.get("scale", 1.0)
-                for seq in run.metrics():
-                    if seq.name == metric:
-                        raw_data = [val/scale for _, (val, _, _) in seq.data.items()]
-                        raw_data = raw_data[r.get("min", 0):r.get("max", len(raw_data))]
-                        raw_data = smoothening(raw_data, smooth)
-                        offset = r.get("offset", 0)
-                        indices = list(range(1+offset, len(raw_data)+1+offset))
-                        data.append((indices,raw_data))
+                rs = [r] if isinstance(r, dict) else r
+                proto_indices = []
+                proto_raw_data = []
+                color = None
+                label = None
+                for r in rs:
+                    log(INFO, f"Fetching run {r['hash']}")
+                    run = Run(run_hash=r["hash"], repo=repo, read_only=True)
+                    scale = r.get("scale", 1.0)
+                    for seq in run.metrics():
+                        if seq.name == metric:
+                            raw_data = [val/scale for _, (val, _, _) in seq.data.items()]
+                            raw_data = raw_data[r.get("min", 0):r.get("max", len(raw_data))]
+                            raw_data = smoothening(raw_data, smooth)
+                            offset = r.get("offset", 0)
+                            indices = list(range(1+offset, len(raw_data)+1+offset))
+                            proto_indices.extend(indices)
+                            proto_raw_data.extend(raw_data)
+                            break
+                    else:
+                        log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
                         break
-                else:
-                    log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
-                    break
-                colors.append([(x if isinstance(x, float) else x/255) for x in color_defs.get(r["color"], r["color"])])
-                labels.append(r["label"])
+                    if r.get("color") is not None:
+                        if color is None:
+                            color = r["color"]
+                        else:
+                            log(INFO, "WARNING: multiple colors specified - using first specified")
+                    if r.get("label") is not None:
+                        if label is None:
+                            label = r["label"]
+                        else:
+                            log(INFO, "WARNING: multiple labels specified - using first specified")
+                data.append((proto_indices, proto_raw_data))
+                colors.append([(x if isinstance(x, float) else x/255) for x in color_defs.get(color, color)])
+                labels.append(label)
             else:
                 done = True
             if not done:
