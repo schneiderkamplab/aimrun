@@ -64,6 +64,17 @@ def smoothening(vector, smooth):
     else:
         raise ValueError(f"unknown smoothing algorithm {alg}")
 
+def ensure_int(x):
+    if x is None:
+        return None
+    if x[-1].lower() == "g":
+        return int(float(x[:-1])*10**9)
+    if x[-1].lower() == "m":
+        return int(float(x[:-1])*10**6)
+    if x[-1].lower() == "k":
+        return int(float(x[:-1])*10**3)
+    return int(x)
+
 @click.group()
 def _plot():
     pass
@@ -106,7 +117,7 @@ def do_plot(
             if color_defs is None:
                 log(ERROR, "no colors specified - skipping")
                 continue
-            xlim = fdef.get("xlim", std_xlim)
+            xlim = ensure_int(fdef.get("xlim", std_xlim))
             ylim = fdef.get("ylim", std_ylim)
             metric = fdef.get("metric", std_metric)
             if metric is None:
