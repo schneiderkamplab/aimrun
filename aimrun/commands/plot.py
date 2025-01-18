@@ -67,6 +67,8 @@ def smoothening(vector, smooth):
 def ensure_int(x):
     if x is None:
         return None
+    if isinstance(x, list):
+        return [ensure_int(y) for y in x]
     if x[-1].lower() == "g":
         return int(float(x[:-1])*10**9)
     if x[-1].lower() == "m":
