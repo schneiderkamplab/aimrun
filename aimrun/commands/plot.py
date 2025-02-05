@@ -144,6 +144,16 @@ def do_plot(
                     log(INFO, f"Fetching run {r['hash']}")
                     run = Run(run_hash=r["hash"], repo=repo, read_only=True)
                     scale = r.get("scale", 1.0)
+                    if r.get("color") is not None:
+                        if color is None:
+                            color = r["color"]
+                        else:
+                            log(INFO, "WARNING: multiple colors specified - using first specified")
+                    if r.get("label") is not None:
+                        if label is None:
+                            label = r["label"]
+                        else:
+                            log(INFO, "WARNING: multiple labels specified - using first specified")
                     for seq in run.metrics():
                         if seq.name == metric:
                             raw_data = [val/scale for _, (val, _, _) in seq.data.items()]
@@ -156,17 +166,7 @@ def do_plot(
                             break
                     else:
                         log(ERROR, f"metric {metric} not found for {r['hash']} - skipping")
-                        break
-                    if r.get("color") is not None:
-                        if color is None:
-                            color = r["color"]
-                        else:
-                            log(INFO, "WARNING: multiple colors specified - using first specified")
-                    if r.get("label") is not None:
-                        if label is None:
-                            label = r["label"]
-                        else:
-                            log(INFO, "WARNING: multiple labels specified - using first specified")
+                        continue
                 data.append((proto_indices, proto_raw_data))
                 colors.append([(x if isinstance(x, float) else x/255) for x in color_defs.get(color, color)])
                 labels.append(label)
