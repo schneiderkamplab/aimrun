@@ -86,9 +86,10 @@ def _plot():
 @click.option("--retries", default=10, help="Number of retries to fetch run (default: 10)")
 @click.option("--sleep", default=1.0, help="Sleep time in seconds between retries (default: 1.0)")
 @click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
-def plot(figures, output_path, retries, sleep, verbosity):
+@click.option("--format", default="png", help="Format of the output plots (default: png)")
+def plot(figures, output_path, retries, sleep, verbosity, format):
     install_signal_handler()
-    do_plot(figures, output_path, retries, sleep, verbosity)
+    do_plot(figures, output_path, retries, sleep, verbosity, format)
 
 def do_plot(
         figures,
@@ -96,6 +97,7 @@ def do_plot(
         retries=10,
         sleep=1,
         verbosity=get_verbosity(),
+        format="png",
     ):
     set_verbosity(verbosity)
     set_fetch(retries, sleep)
@@ -174,7 +176,7 @@ def do_plot(
                 done = True
             if not done:
                 continue
-            plot_name = os.path.join(output_path, f"{fname}.png")
+            plot_name = os.path.join(output_path, f"{fname}.{format}")
             log(INFO, f"Plotting to {plot_name}")
             plot_multiple_lines(
                 data=data,
