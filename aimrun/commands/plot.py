@@ -15,7 +15,17 @@ from ..utils import (
     set_verbosity,
 )
 
-def plot_multiple_lines(data, colors, legend_labels, xlim, ylim, plot_name):
+def plot_multiple_lines(
+        data,
+        colors,
+        legend_labels,
+        xlim,
+        ylim,
+        plot_name,
+        xsize,
+        ysize,
+        pad,
+    ):
     """
     Create a line plot with multiple lines, a legend, and custom colors.
     
@@ -28,9 +38,9 @@ def plot_multiple_lines(data, colors, legend_labels, xlim, ylim, plot_name):
         None
     """
     # Ensure equal aspect ratio for a square plot
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8 if xsize is None else xsize, 8 if ysize is None else ysize))
     # Adjust layout for minimal padding
-    plt.tight_layout(pad=0.2)
+    plt.tight_layout(pad=0.2 if pad is None else pad)
     # Plot each line
     for i, line_data in enumerate(data):
         plt.plot(*line_data, color=colors[i], label=legend_labels[i])
@@ -65,8 +75,10 @@ def smoothening(vector, smooth):
         raise ValueError(f"unknown smoothing algorithm {alg}")
 
 def ensure_int(x):
-    if x is None:
-        return None
+    if x is None or isinstance(x, int):
+        return x
+    if isinstance(x, float):
+        return int(x)
     if isinstance(x, list):
         return [ensure_int(y) for y in x]
     if x[-1].lower() == "g":
@@ -112,6 +124,9 @@ def do_plot(
         std_ylim = fs.pop("ylim", None)
         std_metric = fs.pop("metric", None)
         std_smooth = fs.pop("smooth", None)
+        std_xsize = fs.pop("xsize", None)
+        std_ysize = fs.pop("ysize", None)
+        std_pad = fs.pop("pad", None)
         for fname, fdef in fs.items():
             log(INFO, '-'*40)
             log(INFO, f"Processing figure {fname}")
@@ -134,6 +149,9 @@ def do_plot(
                 log(ERROR, "no runs specified - skipping")
                 continue
             smooth = fdef.get("smooth", std_smooth)
+            xsize = fdef.get("xsize", std_xsize)
+            ysize = fdef.get("ysize", std_ysize)
+            pad = fdef.get("pad", std_pad)
             done = False
             data = []
             colors = []
@@ -194,5 +212,8 @@ def do_plot(
                 xlim=xlim,
                 ylim=ylim,
                 plot_name=plot_name,
+                xsize=xsize,
+                ysize=ysize,
+                pad=pad,
             )
         log(INFO, '='*40)
