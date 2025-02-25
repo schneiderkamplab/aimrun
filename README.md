@@ -22,7 +22,7 @@ pip install aimrun
 import aimrun
 
 # initalize 
-aimrun.init(repo='aim://172.3.66.145:53800', experiment='my_experiment', description='description of run' args={"arg": 1}) # args=vars(args) if you use argsparse
+aimrun.init(repo='aim://172.3.66.145:53800', experiment='my_experiment', description='description of run', args={"arg": 1}) # args=vars(args) if you use argsparse
 
 # track 
 aimrun.track({"value_0": A, "value_1": B})
