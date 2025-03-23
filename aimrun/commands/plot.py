@@ -100,10 +100,9 @@ def _plot():
 @click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
 @click.option("--format", default="png", help="Format of the output plots (default: png)")
 @click.option("--dump", is_flag=True, help="Dump the plot data to CSV files (default: False)")
-@click.option("--x-time-offset", default=None, type=float, help="Use time as x-axis instead of steps with offset (default: None)")
-def plot(figures, output_path, retries, sleep, verbosity, format, dump, x_time_offset):
+def plot(figures, output_path, retries, sleep, verbosity, format, dump):
     install_signal_handler()
-    do_plot(figures, output_path, retries, sleep, verbosity, format, dump, x_time_offset)
+    do_plot(figures, output_path, retries, sleep, verbosity, format, dump)
 
 def do_plot(
         figures,
@@ -113,7 +112,6 @@ def do_plot(
         verbosity=get_verbosity(),
         format="png",
         dump=False,
-        x_time_offset=None,
     ):
     set_verbosity(verbosity)
     set_fetch(retries, sleep)
@@ -129,6 +127,7 @@ def do_plot(
         std_xsize = fs.pop("xsize", None)
         std_ysize = fs.pop("ysize", None)
         std_pad = fs.pop("pad", None)
+        std_xtimeoffset = fs.pop("xtimeoffset", None)
         for fname, fdef in fs.items():
             log(INFO, '-'*40)
             log(INFO, f"Processing figure {fname}")
@@ -154,6 +153,7 @@ def do_plot(
             xsize = fdef.get("xsize", std_xsize)
             ysize = fdef.get("ysize", std_ysize)
             pad = fdef.get("pad", std_pad)
+            xtimeoffset = fdef.get("xtimeoffset", std_xtimeoffset)
             done = False
             data = []
             colors = []
@@ -184,11 +184,11 @@ def do_plot(
                             raw_data = raw_data[r.get("min", 0):r.get("max", len(raw_data))]
                             raw_data = smoothening(raw_data, smooth)
                             offset = r.get("offset", 0)
-                            if x_time_offset is not None:
+                            if xtimeoffset is not None:
                                 indices = [t for _, (_, _, t) in seq.data.items()]
-                                indices = [(t-indices[0]+x_time_offset) for t in indices]
+                                indices = [(t-indices[0]+xtimeoffset) for t in indices]
                                 indices = indices[r.get("min", 0):r.get("max", len(indices))]
-                                x_time_offset = 2*indices[-1]-indices[-2]
+                                xtimeoffset = 2*indices[-1]-indices[-2]
                             else:
                                 indices = list(range(1+offset, len(raw_data)+1+offset))
                             proto_indices.extend(indices)
