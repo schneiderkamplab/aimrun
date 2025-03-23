@@ -164,6 +164,7 @@ def do_plot(
                 proto_raw_data = []
                 color = None
                 label = None
+                _xtimeoffset = xtimeoffset
                 for r in rs:
                     log(INFO, f"Fetching run {r['hash']}")
                     run = Run(run_hash=r["hash"], repo=repo, read_only=True)
@@ -184,11 +185,11 @@ def do_plot(
                             raw_data = raw_data[r.get("min", 0):r.get("max", len(raw_data))]
                             raw_data = smoothening(raw_data, smooth)
                             offset = r.get("offset", 0)
-                            if xtimeoffset is not None:
+                            if _xtimeoffset is not None:
                                 indices = [t for _, (_, _, t) in seq.data.items()]
-                                indices = [(t-indices[0]+xtimeoffset) for t in indices]
+                                indices = [(t-indices[0]+_xtimeoffset) for t in indices]
                                 indices = indices[r.get("min", 0):r.get("max", len(indices))]
-                                xtimeoffset = 2*indices[-1]-indices[-2]
+                                _xtimeoffset = 2*indices[-1]-indices[-2]
                             else:
                                 indices = list(range(1+offset, len(raw_data)+1+offset))
                             proto_indices.extend(indices)
