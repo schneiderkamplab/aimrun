@@ -100,9 +100,10 @@ def _plot():
 @click.option("--verbosity", default=get_verbosity(), help=f"Verbosity of the output (default: {get_verbosity()})")
 @click.option("--format", default="png", help="Format of the output plots (default: png)")
 @click.option("--dump", is_flag=True, help="Dump the plot data to CSV files (default: False)")
-def plot(figures, output_path, retries, sleep, verbosity, format, dump):
+@click.option("--x-time-offset", default=None, type=float, help="Use time as x-axis instead of steps with offset (default: None)")
+def plot(figures, output_path, retries, sleep, verbosity, format, dump, x_time_offset):
     install_signal_handler()
-    do_plot(figures, output_path, retries, sleep, verbosity, format, dump)
+    do_plot(figures, output_path, retries, sleep, verbosity, format, dump, x_time_offset)
 
 def do_plot(
         figures,
@@ -112,6 +113,7 @@ def do_plot(
         verbosity=get_verbosity(),
         format="png",
         dump=False,
+        x_time_offset=None,
     ):
     set_verbosity(verbosity)
     set_fetch(retries, sleep)
@@ -182,7 +184,13 @@ def do_plot(
                             raw_data = raw_data[r.get("min", 0):r.get("max", len(raw_data))]
                             raw_data = smoothening(raw_data, smooth)
                             offset = r.get("offset", 0)
-                            indices = list(range(1+offset, len(raw_data)+1+offset))
+                            if x_time_offset is not None:
+                                indices = [t for _, (_, _, t) in seq.data.items()]
+                                indices = [(t-indices[0]+x_time_offset) for t in indices]
+                                indices = indices[r.get("min", 0):r.get("max", len(indices))]
+                                x_time_offset = 2*indices[-1]-indices[-2]
+                            else:
+                                indices = list(range(1+offset, len(raw_data)+1+offset))
                             proto_indices.extend(indices)
                             proto_raw_data.extend(raw_data)
                             break
