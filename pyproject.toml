@@ -26,6 +26,9 @@ dependencies = [
     'matplotlib',
     'pandas',
     'scipy',
+    "smolagents[toolkit]",
+    "smolagents[openai]",
+    "scikit-learn",
 ]
 
 [project.urls]
