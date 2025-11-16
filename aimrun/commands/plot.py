@@ -18,6 +18,7 @@ from ..utils import (
 def plot_multiple_lines(
         data,
         colors,
+        linestyles,
         legend_labels,
         xlim,
         ylim,
@@ -43,7 +44,7 @@ def plot_multiple_lines(
     plt.tight_layout(pad=0.2 if pad is None else pad)
     # Plot each line
     for i, line_data in enumerate(data):
-        plt.plot(*line_data, color=colors[i], label=legend_labels[i])
+        plt.plot(*line_data, color=colors[i], linestyle=linestyles[i], label=legend_labels[i])
     # Add legend
     plt.legend(loc='upper left')
     # Set axis x range
@@ -157,12 +158,14 @@ def do_plot(
             done = False
             data = []
             colors = []
+            linestyles = []
             labels = []
             for r in runs:
                 rs = [r] if isinstance(r, dict) else r
                 proto_indices = []
                 proto_raw_data = []
                 color = None
+                linestyle = "-"
                 label = None
                 _xtimeoffset = xtimeoffset
                 for r in rs:
@@ -174,6 +177,11 @@ def do_plot(
                             color = r["color"]
                         else:
                             log(INFO, "WARNING: multiple colors specified - using first specified")
+                    if r.get("linestyle") is not None:
+                        if linestyle == "-":
+                            linestyle = r["linestyle"]
+                        else:
+                            log(INFO, "WARNING: multiple linestyles specified - using first specified")
                     if r.get("label") is not None:
                         if label is None:
                             label = r["label"]
@@ -200,6 +208,7 @@ def do_plot(
                         continue
                 data.append((proto_indices, proto_raw_data))
                 colors.append([(x if isinstance(x, float) else x/255) for x in color_defs.get(color, color)])
+                linestyles.append(linestyle)
                 labels.append(label)
             else:
                 done = True
@@ -217,6 +226,7 @@ def do_plot(
             plot_multiple_lines(
                 data=data,
                 colors=colors,
+                linestyles=linestyles,
                 legend_labels=labels,
                 xlim=xlim,
                 ylim=ylim,
